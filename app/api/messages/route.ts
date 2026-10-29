@@ -23,7 +23,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await request.json();
+    const rawBody = await request.text();
+    if (Buffer.byteLength(rawBody, "utf8") > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: "That message is too large." }, { status: 413 });
+    }
+    const body = JSON.parse(rawBody);
     const username = typeof body.username === "string" ? body.username.trim().replace(/^@/, "") : "";
     const message = typeof body.message === "string" ? body.message.trim() : "";
 
