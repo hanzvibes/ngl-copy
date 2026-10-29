@@ -40,8 +40,18 @@ export async function POST(request: Request) {
   const user = await getUser(request);
   if (!user) return NextResponse.json({ error: "Silakan login ulang." }, { status: 401 });
 
+  if (!(request.headers.get("content-type") || "").toLowerCase().includes("application/json")) {
+    return NextResponse.json({ error: "Kirim data sebagai JSON." }, { status: 415 });
+  }
+  if (Number(request.headers.get("content-length") || 0) > 8_192) {
+    return NextResponse.json({ error: "Request terlalu besar." }, { status: 413 });
+  }
   try {
-    const body = await request.json();
+    const rawBody = await request.text();
+    if (Buffer.byteLength(rawBody, "utf8") > 8_192) {
+      return NextResponse.json({ error: "Request terlalu besar." }, { status: 413 });
+    }
+    const body = JSON.parse(rawBody);
     const username = typeof body.username === "string" ? body.username.trim().replace(/^@/, "") : "";
     if (!usernamePattern.test(username)) {
       return NextResponse.json({ error: "Username 1–24 karakter: huruf, angka, titik, atau underscore." }, { status: 400 });
