@@ -6,6 +6,9 @@ create table if not exists public.ngl_profiles (
   created_at timestamptz not null default now()
 );
 
+create unique index if not exists ngl_profiles_username_ci_idx
+  on public.ngl_profiles (lower(username));
+
 alter table public.ngl_profiles enable row level security;
 revoke all on table public.ngl_profiles from public, anon, authenticated;
 grant select, insert, update, delete on table public.ngl_profiles to service_role;
@@ -56,7 +59,7 @@ begin
 
   select user_id into v_owner
   from public.ngl_profiles
-  where username = p_username;
+  where lower(username) = lower(p_username);
 
   if v_owner is null then
     return jsonb_build_object('status', 'USERNAME_NOT_FOUND');
