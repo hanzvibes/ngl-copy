@@ -10,9 +10,9 @@ export default function Home() {
   const link = typeof window !== "undefined" ? window.location.origin + "/" + (username.trim().replace(/^@/, "") || "yourname") : "https://ngl-copy.vercel.app/yourname";
 
   async function copyLink() {
-    if (!username.trim()) { setShowPreview(true); return; }
-    try { await navigator.clipboard.writeText(link); setCopied(true); window.setTimeout(() => setCopied(false), 1800); }
-    catch { setShowPreview(true); }
+    const cleanUsername = username.trim().replace(/^@/, "");
+    if (!cleanUsername) { setShowPreview(true); return; }
+    window.location.href = "/dashboard?username=" + encodeURIComponent(cleanUsername);
   }
 
   return <main className="landing">
@@ -24,8 +24,8 @@ export default function Home() {
         <p className="hero-description">The place to get the honest messages your friends are too shy to send. Make your link. Share it anywhere. Let the truth slide in.</p>
         <div className="create-card">
           <label htmlFor="username">Claim your link</label>
-          <div className="username-input"><span className="at">@</span><input id="username" value={username} onChange={e=>setUsername(e.target.value.replace(/[^a-zA-Z0-9_.]/g,"").slice(0,24))} placeholder="yourname" onKeyDown={e=>{if(e.key==="Enter")copyLink()}}/><button className="primary-button" onClick={copyLink}>{copied ? <><Check size={17}/> Copied</> : <>Get my link <ArrowUpRight size={17}/></>}</button></div>
-          <div className="card-foot"><LockKeyhole size={13}/> No account needed for this demo <span className="secure-dot"/></div>
+          <div className="username-input"><span className="at">@</span><input id="username" value={username} onChange={e=>setUsername(e.target.value.replace(/[^a-zA-Z0-9_.]/g,"").slice(0,24))} placeholder="yourname" onKeyDown={e=>{if(e.key==="Enter")copyLink()}}/><button className="primary-button" onClick={copyLink}>{copied ? <><Check size={17}/> Copied</> : <>Create my link <ArrowUpRight size={17}/></>}</button></div>
+          <div className="card-foot"><LockKeyhole size={13}/> Account required to claim your link <span className="secure-dot"/></div>
           {showPreview && <div className="preview-link"><span>{link}</span><button onClick={()=>{navigator.clipboard?.writeText(link);setCopied(true);setShowPreview(false)}} aria-label="Copy link"><Copy size={15}/></button></div>}
         </div>
         <div className="social-proof"><div className="avatar-stack"><span>J</span><span>M</span><span>A</span><span>K</span></div><p><strong>Curiosity looks good on you.</strong><br/>Your friends have things to say.</p></div>
