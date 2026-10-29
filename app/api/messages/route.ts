@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     const supabase = createClient(url, key, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { data, error } = await supabase.rpc("submit_anonymous_message", {
+    const { data, error } = await supabase.rpc("submit_ngl_anonymous_message", {
       p_username: username,
       p_message: message,
       p_ip_hash: ipHash,
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
         { status: 429, headers: { "Retry-After": "3600" } },
       );
     }
-    if (data?.status === "INVALID_INPUT" || data?.status === "INVALID_USERNAME") {
+    if (data?.status === "INVALID_INPUT") {
       return NextResponse.json({ error: "That username or message doesn't look right." }, { status: 400 });
     }
     if (data?.status !== "OK") {
