@@ -66,6 +66,9 @@ export async function POST(request: Request) {
     if (data?.status === "INVALID_INPUT") {
       return NextResponse.json({ error: "That username or message doesn't look right." }, { status: 400 });
     }
+    if (data?.status === "USERNAME_NOT_FOUND") {
+      return NextResponse.json({ error: "This anonymous link isn't active yet." }, { status: 404 });
+    }
     if (data?.status !== "OK") {
       return NextResponse.json({ error: "We couldn't save that message. Please try again later." }, { status: 500 });
     }
