@@ -3,17 +3,16 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Copy, Inbox, LogOut, Mail, RefreshCw, Trash2, UserRound } from "lucide-react";
-import { useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 type Message = { id: number; message: string; created_at: string };
 type Profile = { username: string; created_at?: string };
 
 export default function DashboardPage() {
-  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [username, setUsername] = useState(searchParams.get("username") || "");
+  const [username, setUsername] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [mode, setMode] = useState<"login" | "signup">("signup");
@@ -51,13 +50,17 @@ export default function DashboardPage() {
     let active = true;
     try {
       const supabase = getSupabaseBrowserClient();
+      const preset = new URLSearchParams(window.location.search).get("username");
+      if (preset) setUsername(preset.replace(/[^a-zA-Z0-9_.]/g, "").slice(0, 24));
       supabase.auth.getSession().then(({ data }) => {
         if (!active) return;
+        setIsAuthenticated(Boolean(data.session));
         if (data.session) void loadPrivateData();
         else setLoading(false);
       }).catch(() => { if (active) setLoading(false); });
       const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
         if (!active) return;
+        setIsAuthenticated(Boolean(session));
         if (session) { setLoading(true); void loadPrivateData(); }
         else { setProfile(null); setMessages([]); setLoading(false); }
       });
@@ -128,8 +131,8 @@ export default function DashboardPage() {
       {error && <div className="dashboard-alert error-alert" role="alert">{error}</div>}
       {notice && <div className="dashboard-alert success-alert" role="status"><Check size={15}/>{notice}</div>}
       {loading ? <div className="dashboard-panel loading-panel"><RefreshCw className="spin-icon" size={20}/> Loading your space…</div> :
-      !profile ? <section className="dashboard-panel">
-        <div className="panel-heading"><div className="dashboard-icon"><UserRound size={20}/></div><div><h2>{profile ? "Your profile" : "Make it yours"}</h2><p>Sign in or create an account to reserve a unique username.</p></div></div>
+      !profile && !isAuthenticated ? <section className="dashboard-panel">
+        <div className="panel-heading"><div className="dashboard-icon"><UserRound size={20}/></div><div><h2>{mode==="signup" ? "Make it yours" : "Welcome back"}</h2><p>Create an account or sign in to reserve a unique username and manage your private inbox.</p></div></div>
         <form onSubmit={authenticate} className="dashboard-form">
           <label htmlFor="email">Email address</label><input id="email" type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" required/>
           <label htmlFor="password">Password</label><input id="password" type="password" autoComplete={mode==="signup" ? "new-password" : "current-password"} minLength={8} value={password} onChange={e=>setPassword(e.target.value)} placeholder="At least 8 characters" required/>
@@ -137,12 +140,15 @@ export default function DashboardPage() {
         </form>
         <p className="auth-switch">{mode==="signup" ? "Already have an account?" : "New here?"} <button onClick={()=>{setMode(mode==="signup"?"login":"signup");setError("");setNotice("");}}>{mode==="signup"?"Sign in":"Create an account"}</button></p>
         {mode==="signup" && <p className="privacy-note">Email confirmation may be required depending on Supabase Auth settings.</p>}
-        <div className="dashboard-divider"><span>THEN RESERVE YOUR LINK</span></div>
+      </section> :
+      !profile ? <section className="dashboard-panel">
+        <div className="panel-heading"><div className="dashboard-icon"><UserRound size={20}/></div><div><h2>Claim your username</h2><p>Your username becomes your public anonymous-message link. It can only be claimed once.</p></div></div>
         <form onSubmit={claimProfile} className="dashboard-form">
           <label htmlFor="username">Your username</label><div className="dashboard-username"><span>@</span><input id="username" value={username} onChange={e=>setUsername(e.target.value.replace(/[^a-zA-Z0-9_.]/g,"").slice(0,24))} placeholder="yourname" required/></div>
           <button className="primary-button full-button" disabled={busy}>Claim username <Check size={16}/></button>
         </form>
-        <p className="privacy-note">You must sign in before a username can be claimed.</p>
+        <p className="privacy-note">Signed in securely. Your inbox is private to this account.</p>
+        <button className="logout-button" onClick={signOut}><LogOut size={15}/> Sign out</button>
       </section> :
       <>
         <section className="dashboard-panel profile-panel">
