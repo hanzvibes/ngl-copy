@@ -44,8 +44,18 @@ export async function DELETE(request: Request) {
   if (!c) return NextResponse.json({ error: "Supabase belum dikonfigurasi." }, { status: 503 });
   if (!user) return NextResponse.json({ error: "Silakan login ulang." }, { status: 401 });
 
+  if (!(request.headers.get("content-type") || "").toLowerCase().includes("application/json")) {
+    return NextResponse.json({ error: "Kirim data sebagai JSON." }, { status: 415 });
+  }
+  if (Number(request.headers.get("content-length") || 0) > 8_192) {
+    return NextResponse.json({ error: "Request terlalu besar." }, { status: 413 });
+  }
   try {
-    const body = await request.json();
+    const rawBody = await request.text();
+    if (Buffer.byteLength(rawBody, "utf8") > 8_192) {
+      return NextResponse.json({ error: "Request terlalu besar." }, { status: 413 });
+    }
+    const body = JSON.parse(rawBody);
     const id = typeof body.id === "string" || typeof body.id === "number" ? String(body.id) : "";
     if (!/^\d{1,19}$/.test(id)) return NextResponse.json({ error: "ID pesan tidak valid." }, { status: 400 });
 
