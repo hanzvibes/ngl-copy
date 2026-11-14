@@ -28,6 +28,57 @@ export const RANDOM_QUESTIONS: string[] = [
   "What's the kindest thing a stranger has done for you?",
 ];
 
+// NGL-style game packs for the landing page: four prompt packs, each with
+// its example questions, mirroring the games on ngl.link.
+export type Game = { id: string; title: string; gradient: string; examples: string[] };
+
+export const GAMES: Game[] = [
+  {
+    id: "ask",
+    title: "ask me anything",
+    gradient: "linear-gradient(135deg,#a78bff,#3b82f6)",
+    examples: [
+      "What's your biggest dream?",
+      "If you could have any superpower, what would it be?",
+      "What's your dream job?",
+      "Who's your celebrity crush?",
+    ],
+  },
+  {
+    id: "nhie",
+    title: "never have i ever",
+    gradient: "linear-gradient(135deg,#ff5e8a,#ff8a3d)",
+    examples: [
+      "Never have I ever dyed my hair",
+      "Never have I ever ghosted someone",
+      "Never have I ever lied on a first date",
+      "Never have I ever Googled myself.",
+    ],
+  },
+  {
+    id: "confess",
+    title: "confessions",
+    gradient: "linear-gradient(135deg,#f472b6,#a855f7)",
+    examples: [
+      "I pretend to drink coffee but it's just diet coke",
+      "I failed all my uni exams",
+      "I hate college parties",
+      "I have a secret TikTok account",
+    ],
+  },
+  {
+    id: "words",
+    title: "3 words",
+    gradient: "linear-gradient(135deg,#34d399,#3b82f6)",
+    examples: [
+      "You're a genius, flawless, iconic",
+      "You're bff, boujee, simp",
+      "You're funny, sheesh, hype",
+      "You're spicy, gorgeous, beautiful",
+    ],
+  },
+];
+
 export function pickRandomQuestion(current?: string): string {
   const pool = RANDOM_QUESTIONS.filter((q) => q !== current);
   const list = pool.length > 0 ? pool : RANDOM_QUESTIONS;

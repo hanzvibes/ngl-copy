@@ -399,8 +399,8 @@ export default function DashboardPage() {
       <div className="dashboard-heading dash-tab-panel" data-panel="home"><span className="eyebrow">YOUR SPACE, YOUR RULES</span><h1>{t("dash.titleA")}<br/><span className="gradient-text">{t("dash.titleB")}</span></h1><p>{t("dash.sub")}</p></div>
       {error && <div className="dashboard-alert error-alert" role="alert">{error}</div>}
       {notice && <div className="dashboard-alert success-alert" role="status"><Check size={15}/>{notice}<button type="button" className="notice-dismiss" onClick={()=>setNotice("")} aria-label={t("dash.dismiss")}>×</button></div>}
-      {loading ? <div className="dashboard-panel loading-panel"><RefreshCw className="spin-icon" size={20}/> {t("dash.loading")}</div> :
-      !profile && !isAuthenticated ? <section className="dashboard-panel">
+      {loading ? <div className="dashboard-panel loading-panel ngl-panel"><RefreshCw className="spin-icon" size={20}/> {t("dash.loading")}</div> :
+      !profile && !isAuthenticated ? <section className="dashboard-panel ngl-panel">
         <div className="panel-heading"><div className="dashboard-icon"><UserRound size={20}/></div><div><h2>{mode==="signup" ? t("dash.make") : t("dash.welcome")}</h2><p>{t("dash.authDesc")}</p></div></div>
         <form onSubmit={authenticate} className="dashboard-form">
           <label htmlFor="email">{t("dash.email")}</label><input id="email" type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" required/>
@@ -410,7 +410,7 @@ export default function DashboardPage() {
         <p className="auth-switch">{mode==="signup" ? t("dash.haveAccount") : t("dash.newHere")} <button onClick={()=>{setMode(mode==="signup"?"login":"signup");setError("");setNotice("");}}>{mode==="signup" ? t("dash.signin") : t("dash.createAccount")}</button></p>
         {mode==="signup" && <p className="privacy-note">{t("dash.confirmHint")}</p>}
       </section> :
-      !profile ? <section className="dashboard-panel">
+      !profile ? <section className="dashboard-panel ngl-panel">
         <div className="panel-heading"><div className="dashboard-icon"><UserRound size={20}/></div><div><h2>{t("dash.claimTitle")}</h2><p>{t("dash.claimDesc")}</p></div></div>
         <form onSubmit={claimProfile} className="dashboard-form">
           <label htmlFor="username">Your username</label><div className="dashboard-username"><span>@</span><input id="username" value={username} onChange={e=>setUsername(e.target.value.replace(/[^a-zA-Z0-9_.]/g,"").slice(0,24))} placeholder="yourname" required/></div>
@@ -420,15 +420,16 @@ export default function DashboardPage() {
         <button className="logout-button" onClick={signOut}><LogOut size={15}/> {t("dash.signOut")}</button>
       </section> :
       <><div className="dash-tab-panel" data-panel="home">
-        <section className="dashboard-panel profile-panel">
+        <section className="dashboard-panel profile-panel ngl-panel">
+          <div className="ngl-head">{t("play.sendMe")}</div>
           <div className="profile-summary">
             {profile.avatar_url
               ? <img className="send-avatar profile-avatar-img" src={profile.avatar_url} alt={`@${profile.username}`} referrerPolicy="no-referrer"/>
               : <div className="send-avatar" style={{ background: THEMES[themeOrDefault(profile.theme)].gradient }}>{profile.username.slice(0,1).toUpperCase()}</div>}
             <div className="profile-summary-copy"><span className="eyebrow">{t("dash.yourLink")}</span><h2>@{profile.username}</h2><p>{typeof window !== "undefined" ? window.location.origin : ""}/{profile.username}</p>{profile.bio && <p className="profile-bio">{profile.bio}</p>}</div>
           </div>
-          <button className="primary-button full-button" onClick={copyLink}>{copied ? <><Check size={16}/> {t("dash.copied")}</> : <><Copy size={16}/> {t("dash.copy")}</>}</button>
-          <div className="share-via"><span>{t("dash.shareVia")}</span><button className="secondary-button" onClick={()=>shareVia("whatsapp")}><MessageCircle size={15}/> WhatsApp</button><button className="secondary-button" onClick={()=>shareVia("x")}><Twitter size={15}/> X</button><button className="secondary-button" onClick={()=>shareVia("threads")}><AtSign size={15}/> Threads</button></div>
+          <div className="ngl-step"><span>{t("play.step1")}</span><div className="ngl-link-row"><span>{typeof window !== "undefined" ? window.location.origin : ""}/{profile.username}</span><button className="secondary-button" onClick={copyLink}>{copied ? <><Check size={15}/> {t("dash.copied")}</> : <><Copy size={15}/> {t("dash.copy")}</>}</button></div></div>
+          <div className="ngl-step"><span>{t("play.step2")}</span><button className="ngl-share-btn" disabled={sharingLink} onClick={()=>void shareLink()}><Share2 size={17}/> {sharingLink ? t("dash.making") : t("play.share")}</button><div className="share-via"><span>{t("dash.shareVia")}</span><button className="secondary-button" onClick={()=>shareVia("whatsapp")}><MessageCircle size={15}/> WhatsApp</button><button className="secondary-button" onClick={()=>shareVia("x")}><Twitter size={15}/> X</button><button className="secondary-button" onClick={()=>shareVia("threads")}><AtSign size={15}/> Threads</button></div></div>
           <div className="qr-row">
             {qrUrl && <img className="qr-image" src={qrUrl} alt="QR code to your anonymous link"/>}
             <div className="qr-copy"><strong>{t("dash.qrTitle")}</strong><p>{t("dash.qrDesc")}</p><button className="secondary-button" disabled={sharingLink} onClick={()=>void shareLink()}><QrCode size={15}/> {sharingLink ? t("dash.making") : t("dash.qrBtn")}</button></div>
@@ -444,7 +445,7 @@ export default function DashboardPage() {
           <div className="stat-card"><strong>{stats.unread}</strong><span>{t("dash.statUnread")}</span></div>
         </section>
 
-        {stats.byDay.length > 0 && <section className="dashboard-panel week-chart"><h3>{t("dash.weekTitle")}</h3><div className="chart-bars" role="img" aria-label={`${t("dash.weekTitle")}: ${chartSummary}`}>{stats.byDay.map((d) => <div className="chart-bar-col" key={d.date} aria-hidden="true"><div className="chart-bar" style={{ height: `${Math.max(4, Math.round((d.count / maxDayCount) * 72))}px` }} title={`${d.date}: ${d.count}`}/><span>{new Date(`${d.date}T00:00:00Z`).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { weekday: "short" })}</span><strong>{d.count}</strong></div>)}</div></section>}</div><div className="dash-tab-panel" data-panel="inbox">
+        {stats.byDay.length > 0 && <section className="dashboard-panel week-chart ngl-panel"><h3>{t("dash.weekTitle")}</h3><div className="chart-bars" role="img" aria-label={`${t("dash.weekTitle")}: ${chartSummary}`}>{stats.byDay.map((d) => <div className="chart-bar-col" key={d.date} aria-hidden="true"><div className="chart-bar" style={{ height: `${Math.max(4, Math.round((d.count / maxDayCount) * 72))}px` }} title={`${d.date}: ${d.count}`}/><span>{new Date(`${d.date}T00:00:00Z`).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { weekday: "short" })}</span><strong>{d.count}</strong></div>)}</div></section>}</div><div className="dash-tab-panel" data-panel="inbox">
 
 
         <section className="inbox-section"><div className="inbox-title"><div><span className="eyebrow">{t("dash.inboxEyebrow")}</span><h2>{t("dash.inbox")} <span>{messages.length}</span></h2></div><button className="icon-button" aria-label="Refresh inbox" onClick={()=>{setLoading(true);void loadPrivateData();}}><RefreshCw size={16}/></button></div>
