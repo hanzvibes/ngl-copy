@@ -29,7 +29,7 @@ export default function DiscoverPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  return <main className="dashboard-page">
+  return <main className="dashboard-page" id="main" tabIndex={-1}><a className="skip-link" href="#main">{t("a11y.skip")}</a>
     <header className="dashboard-nav"><Link href="/" className="back-link"><ArrowLeft size={17}/><span>ngl.</span></Link><div className="nav-actions"><button className="icon-mini" onClick={() => setThemeMode(toggleThemeMode())} aria-label="Toggle theme">{themeMode === "light" ? <Moon size={15}/> : <Sun size={15}/>}</button><button className="lang-toggle" onClick={() => setLang(lang === "id" ? "en" : "id")}>{lang === "id" ? "EN" : "ID"}</button></div></header>
     <section className="dashboard-shell">
       <div className="dashboard-heading"><span className="eyebrow">FIND SOMEONE TO ASK</span><h1><span className="gradient-text">{t("nav.discover")}</span></h1><p>{lang === "id" ? "Link yang pemiliknya memilih tampil di sini. Ketuk salah satu untuk mengirim pesan anonim." : "Links whose owners chose to be listed here. Tap one to send an anonymous message."}</p></div>
@@ -39,7 +39,7 @@ export default function DiscoverPage() {
       <div className="discover-grid">{profiles.map((p) => <Link key={p.username} href={`/${encodeURIComponent(p.username)}`} className="discover-card">
         {p.avatar_url
           ? <img className="discover-avatar" src={p.avatar_url} alt={`@${p.username}`} referrerPolicy="no-referrer"/>
-          : <div className="discover-avatar discover-avatar-initial" style={{ background: THEMES[themeOrDefault(p.theme)].gradient }}>{p.username.slice(0, 1).toUpperCase()}</div>}
+          : <div className="discover-avatar discover-avatar-initial" aria-hidden="true" style={{ background: THEMES[themeOrDefault(p.theme)].gradient }}>{p.username.slice(0, 1).toUpperCase()}</div>}
         <strong>@{p.username}</strong>
         {p.prompt && <p className="discover-prompt">“{p.prompt}”</p>}
         {p.bio && <p className="discover-bio">{p.bio}</p>}

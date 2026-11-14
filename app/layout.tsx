@@ -14,5 +14,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body><Script id="theme-init" strategy="beforeInteractive">{`try{if(localStorage.getItem('ngl-theme')==='light'){document.documentElement.dataset.theme='light'}}catch(e){}`}</Script>{children}</body></html>;
+  return <html lang="en"><body><Script id="theme-init" strategy="beforeInteractive">{`try{if(localStorage.getItem('ngl-theme')==='light'){document.documentElement.dataset.theme='light'}if(localStorage.getItem('ngl-lang')==='id'){document.documentElement.lang='id'}}catch(e){}`}</Script>{children}</body></html>;
 }
