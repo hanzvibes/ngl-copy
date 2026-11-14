@@ -1,9 +1,13 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { ArrowLeft, Check, Heart, LockKeyhole, Send } from "lucide-react";
+import { FormEvent, useEffect, useState } from "react";
+import { ArrowLeft, Check, Dices, Heart, LockKeyhole, Send } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { pickRandomQuestion } from "@/lib/questions";
+import { THEMES, themeOrDefault, type ThemeId } from "@/lib/themes";
+
+type PublicProfile = { bio: string; avatar_url: string; theme: ThemeId };
 
 export default function ProfilePage() {
   const params = useParams<{username:string}>();
@@ -12,6 +16,28 @@ export default function ProfilePage() {
   const [sent,setSent] = useState(false);
   const [busy,setBusy] = useState(false);
   const [error,setError] = useState("");
+  const [profile,setProfile] = useState<PublicProfile | null>(null);
+
+  // Public profile (bio, photo, theme). If the link isn't claimed or Supabase
+  // isn't configured, this fails quietly and the page keeps its default look.
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/public-profile?username=${encodeURIComponent(username)}`)
+      .then(async (response) => {
+        if (!response.ok || !active) return;
+        const data = await response.json();
+        if (data.profile) setProfile(data.profile);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [username]);
+
+  const theme = themeOrDefault(profile?.theme);
+
+  function rollQuestion() {
+    setMessage(pickRandomQuestion(message));
+    setError("");
+  }
 
   async function submit(e:FormEvent) {
     e.preventDefault();
@@ -27,9 +53,14 @@ export default function ProfilePage() {
   }
 
   return <main className="message-page"><div className="message-page-glow"/><header className="message-nav"><Link href="/" className="back-link"><ArrowLeft size={17}/> <span>ngl.</span></Link><span className="private-tag"><LockKeyhole size={13}/> anonymous</span></header>
-    <section className="send-panel"><div className="send-avatar">{username.slice(0,1).toUpperCase()}<span>✳</span></div><span className="eyebrow">THE FLOOR IS YOURS</span><h1>Send <span className="gradient-text">@{username}</span><br/>an anonymous message.</h1><p className="send-subtitle">Be real. Be kind. They won't know it's you.</p>
+    <section className="send-panel">
+      {profile?.avatar_url
+        ? <img className="send-avatar send-avatar-img" src={profile.avatar_url} alt={`@${username}`} referrerPolicy="no-referrer"/>
+        : <div className="send-avatar" style={{ background: THEMES[theme].gradient }}>{username.slice(0,1).toUpperCase()}<span>✳</span></div>}
+      <span className="eyebrow">THE FLOOR IS YOURS</span><h1>Send <span className="gradient-text">@{username}</span><br/>an anonymous message.</h1>
+      {profile?.bio ? <p className="send-bio">{profile.bio}</p> : <p className="send-subtitle">Be real. Be kind. They won't know it's you.</p>}
       {sent ? <div className="success-panel"><div className="success-icon"><Check size={24}/></div><h2>Message sent!</h2><p>Your words are on their way. Your identity stays a secret.</p><button className="primary-button full-button" onClick={()=>setSent(false)}>Send another <Send size={16}/></button></div> :
-      <form onSubmit={submit} className="send-form"><label htmlFor="message">Your message</label><textarea id="message" value={message} onChange={e=>setMessage(e.target.value.slice(0,500))} placeholder="Type something you’ve always wanted to say..." maxLength={500} required/><div className="form-meta"><span>{message.length}/500</span><span>Keep it respectful <Heart size={12}/></span></div>{error && <p className="form-error">{error}</p>}<button className="primary-button full-button" disabled={busy || !message.trim()}>{busy ? "Sending..." : <>Send anonymously <Send size={16}/></>}</button><p className="privacy-note"><LockKeyhole size={12}/> Your name is never attached to your message.</p></form>}
+      <form onSubmit={submit} className="send-form"><label htmlFor="message">Your message</label><textarea id="message" value={message} onChange={e=>setMessage(e.target.value.slice(0,500))} placeholder="Type something you’ve always wanted to say..." maxLength={500} required/><div className="form-meta"><span>{message.length}/500</span><button type="button" className="dice-button" onClick={rollQuestion}><Dices size={13}/> Roll a question</button></div>{error && <p className="form-error">{error}</p>}<button className="primary-button full-button" disabled={busy || !message.trim()}>{busy ? "Sending..." : <>Send anonymously <Send size={16}/></>}</button><p className="privacy-note"><LockKeyhole size={12}/> Your name is never attached to your message.</p></form>}
     </section><footer className="message-footer">A little honesty can go a long way.</footer>
   </main>;
 }
