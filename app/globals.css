@@ -292,6 +292,12 @@ html[data-theme="light"] .sheet-handle{background:rgba(36,17,26,.2)}
 .game-card li{font-size:13px;line-height:1.5;color:#333}
 .game-card li::before{content:"\201C";color:#ff5e8a;font-weight:700}
 
+/* --- landing: How-it-works cards match the other white NGL cards --- */
+.step-card{background:#fff;border:0;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.step-card h3{color:#111}
+.step-card p{color:#666}
+.step-number{color:#bbb}
+
 /* --- send page: white NGL card --- */
 .send-card{background:#fff;color:#111;border:0;border-radius:28px;overflow:hidden;box-shadow:0 25px 90px rgba(0,0,0,.55);text-align:left}
 .send-card .ngl-head{border-radius:0;margin:0}
