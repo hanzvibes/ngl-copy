@@ -11,6 +11,9 @@ type Dict = Record<string, string>;
 const en: Dict = {
   "nav.how": "How it works",
   "nav.discover": "Discover",
+  "nav.home": "Home",
+  "nav.inbox": "Inbox",
+  "nav.profile": "Profile",
   "a11y.skip": "Skip to content",
   "hero.eyebrow": "YOUR INBOX, UNFILTERED",
   "hero.titleA": "Say it with",
@@ -153,6 +156,9 @@ const en: Dict = {
 const id: Dict = {
   "nav.how": "Cara kerja",
   "nav.discover": "Jelajahi",
+  "nav.home": "Beranda",
+  "nav.inbox": "Inbox",
+  "nav.profile": "Profil",
   "a11y.skip": "Lewati ke konten",
   "hero.eyebrow": "INBOX-MU, TANPA FILTER",
   "hero.titleA": "Katakan dengan",

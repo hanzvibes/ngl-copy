@@ -10,6 +10,7 @@ import { downloadBlob, renderStoryCardBlob, type CardStyle } from "@/lib/share-c
 import { THEMES, THEME_IDS, themeOrDefault, type ThemeId } from "@/lib/themes";
 import { getInitialLang, tr, useLang } from "@/lib/i18n";
 import { getThemeMode, toggleThemeMode, type ThemeMode } from "@/lib/theme";
+import AppTabBar, { type AppTab } from "@/components/AppTabBar";
 
 type Message = { id: number; message: string; created_at: string; reply: string | null; liked: boolean; is_read: boolean; is_public: boolean; archived: boolean; pinned: boolean; reaction: string | null };
 type Profile = { username: string; created_at?: string; bio: string; avatar_url: string; theme: ThemeId; prompt: string; paused: boolean; prompt_auto: boolean; discoverable: boolean; bg_url: string; instagram: string; tiktok: string; x_handle: string };
@@ -54,6 +55,7 @@ export default function DashboardPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, today: 0, liked: 0, unread: 0, byDay: [] });
   const [filter, setFilter] = useState<Filter>("all");
+  const [tab, setTab] = useState<AppTab>("home");
   const [mode, setMode] = useState<"login" | "signup">("signup");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -174,6 +176,8 @@ export default function DashboardPage() {
       const supabase = getSupabaseBrowserClient();
       const preset = new URLSearchParams(window.location.search).get("username");
       if (preset) setUsername(preset.replace(/[^a-zA-Z0-9_.]/g, "").slice(0, 24));
+      const tabParam = new URLSearchParams(window.location.search).get("tab");
+      if (tabParam === "inbox" || tabParam === "profile" || tabParam === "home") setTab(tabParam);
       supabase.auth.getSession().then(({ data }) => {
         if (!active) return;
         setIsAuthenticated(Boolean(data.session));
@@ -443,11 +447,11 @@ export default function DashboardPage() {
   const maxDayCount = Math.max(1, ...stats.byDay.map((d) => d.count));
   const chartSummary = stats.byDay.map((d) => `${new Date(`${d.date}T00:00:00Z`).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { weekday: "short" })}: ${d.count}`).join(", ");
 
-  return <main className="dashboard-page" id="main" tabIndex={-1}>
+  return <main className={profile ? "dashboard-page has-tabbar" : "dashboard-page"} id="main" tabIndex={-1}>
     <a className="skip-link" href="#main">{t("a11y.skip")}</a>
-    <header className="dashboard-nav"><Link href="/" className="back-link"><ArrowLeft size={17}/><span>ngl.</span></Link><div className="nav-actions"><span className="private-tag"><Inbox size={13}/> private inbox</span><button className="icon-mini" onClick={() => setThemeMode(toggleThemeMode())} aria-label="Toggle theme">{themeMode === "light" ? <Moon size={15}/> : <Sun size={15}/>}</button><button className="lang-toggle" onClick={() => setLang(lang === "id" ? "en" : "id")}>{lang === "id" ? "EN" : "ID"}</button></div></header>
-    <section className="dashboard-shell">
-      <div className="dashboard-heading"><span className="eyebrow">YOUR SPACE, YOUR RULES</span><h1>{t("dash.titleA")}<br/><span className="gradient-text">{t("dash.titleB")}</span></h1><p>{t("dash.sub")}</p></div>
+    <header className="dashboard-nav"><div className="app-bar-inner">{profile ? <button type="button" className="app-bar-identity" onClick={() => setTab("profile")} aria-label={t("nav.profile")}>{profile.avatar_url ? <img className="app-bar-avatar" src={profile.avatar_url} alt="" referrerPolicy="no-referrer"/> : <span className="app-bar-avatar app-bar-avatar-initial" style={{ background: THEMES[themeOrDefault(profile.theme)].gradient }}>{profile.username.slice(0, 1).toUpperCase()}</span>}<span>@{profile.username}</span></button> : <Link href="/" className="back-link"><ArrowLeft size={17}/><span>ngl.</span></Link>}<div className="nav-actions"><span className="private-tag"><Inbox size={13}/> private inbox</span><button className="icon-mini" onClick={() => setThemeMode(toggleThemeMode())} aria-label="Toggle theme">{themeMode === "light" ? <Moon size={15}/> : <Sun size={15}/>}</button><button className="lang-toggle" onClick={() => setLang(lang === "id" ? "en" : "id")}>{lang === "id" ? "EN" : "ID"}</button></div></div></header>
+    <section className="dashboard-shell" data-tab={tab}>
+      <div className="dashboard-heading dash-tab-panel" data-panel="home"><span className="eyebrow">YOUR SPACE, YOUR RULES</span><h1>{t("dash.titleA")}<br/><span className="gradient-text">{t("dash.titleB")}</span></h1><p>{t("dash.sub")}</p></div>
       {error && <div className="dashboard-alert error-alert" role="alert">{error}</div>}
       {notice && <div className="dashboard-alert success-alert" role="status"><Check size={15}/>{notice}<button type="button" className="notice-dismiss" onClick={()=>setNotice("")} aria-label={t("dash.dismiss")}>×</button></div>}
       {loading ? <div className="dashboard-panel loading-panel"><RefreshCw className="spin-icon" size={20}/> {t("dash.loading")}</div> :
@@ -470,7 +474,7 @@ export default function DashboardPage() {
         <p className="privacy-note">{t("dash.signedIn")}</p>
         <button className="logout-button" onClick={signOut}><LogOut size={15}/> {t("dash.signOut")}</button>
       </section> :
-      <>
+      <><div className="dash-tab-panel" data-panel="home">
         <section className="dashboard-panel profile-panel">
           <div className="profile-summary">
             {profile.avatar_url
@@ -495,7 +499,7 @@ export default function DashboardPage() {
           <div className="stat-card"><strong>{stats.unread}</strong><span>{t("dash.statUnread")}</span></div>
         </section>
 
-        {stats.byDay.length > 0 && <section className="dashboard-panel week-chart"><h3>{t("dash.weekTitle")}</h3><div className="chart-bars" role="img" aria-label={`${t("dash.weekTitle")}: ${chartSummary}`}>{stats.byDay.map((d) => <div className="chart-bar-col" key={d.date} aria-hidden="true"><div className="chart-bar" style={{ height: `${Math.max(4, Math.round((d.count / maxDayCount) * 72))}px` }} title={`${d.date}: ${d.count}`}/><span>{new Date(`${d.date}T00:00:00Z`).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { weekday: "short" })}</span><strong>{d.count}</strong></div>)}</div></section>}
+        {stats.byDay.length > 0 && <section className="dashboard-panel week-chart"><h3>{t("dash.weekTitle")}</h3><div className="chart-bars" role="img" aria-label={`${t("dash.weekTitle")}: ${chartSummary}`}>{stats.byDay.map((d) => <div className="chart-bar-col" key={d.date} aria-hidden="true"><div className="chart-bar" style={{ height: `${Math.max(4, Math.round((d.count / maxDayCount) * 72))}px` }} title={`${d.date}: ${d.count}`}/><span>{new Date(`${d.date}T00:00:00Z`).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { weekday: "short" })}</span><strong>{d.count}</strong></div>)}</div></section>}</div><div className="dash-tab-panel" data-panel="inbox">
 
         <section className="dashboard-panel profile-edit-panel">
           <div className="panel-heading"><div className="dashboard-icon"><Palette size={20}/></div><div><h2>{t("dash.customise")}</h2><p>{t("dash.customiseDesc")}</p></div></div>
@@ -583,7 +587,7 @@ export default function DashboardPage() {
                 </div>
               </div>}
             </article>)}</div>}
-        </section>
+        </section></div><div className="dash-tab-panel" data-panel="profile">
 
         <section className="dashboard-panel blocked-panel">
           <h3>{t("dash.blockedTitle")} <span>({blocks.length})</span></h3>
@@ -591,11 +595,12 @@ export default function DashboardPage() {
             <ul className="blocked-list">{blocks.map((b) => <li key={b.ip_hash}><code>{b.ip_hash.slice(0, 12)}…</code><span>{new Date(b.created_at).toLocaleDateString()}</span><button className="secondary-button" onClick={()=>void unblock(b.ip_hash)}>{t("dash.unblock")}</button></li>)}</ul>}
         </section>
         <button className="logout-button" onClick={signOut}><LogOut size={15}/> {t("dash.signOut")}</button>
-      </>}
+      </div></>}
     </section>
+    {profile && <AppTabBar active={tab} unread={stats.unread} lang={lang} onTab={setTab} />}
     <footer className="message-footer">{t("dash.privacy")}</footer>
     {storyPreview && <div className="story-modal" role="dialog" aria-modal="true" aria-label={t("dash.storyPreview")} onClick={(e)=>{ if (e.target === e.currentTarget) closeStoryPreview(); }}>
-      <div className="story-modal-card">
+      <div className="story-modal-card"><div className="sheet-handle" aria-hidden="true"/>
         <h2>{t("dash.storyPreview")}</h2>
         <p>{t("dash.storyPreviewDesc")}</p>
         <img src={storyPreview.url} alt={t("dash.storyPreview")} />
