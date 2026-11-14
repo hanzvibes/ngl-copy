@@ -5,7 +5,7 @@ import { isThemeId } from "@/lib/themes";
 export const runtime = "nodejs";
 const usernamePattern = /^[a-zA-Z0-9_.]{1,24}$/;
 
-const PROFILE_COLUMNS = "username, created_at, bio, avatar_url, theme, prompt";
+const PROFILE_COLUMNS = "username, created_at, bio, avatar_url, theme, prompt, paused, prompt_auto, discoverable, bg_url, instagram, tiktok, x_handle";
 
 function clients() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -50,7 +50,7 @@ export async function GET(request: Request) {
   if (legacy.error) return NextResponse.json({ error: "Profil gagal dimuat." }, { status: 500 });
   return NextResponse.json({
     profile: legacy.data
-      ? { ...legacy.data, bio: "", avatar_url: "", theme: "pink", prompt: "" }
+      ? { ...legacy.data, bio: "", avatar_url: "", theme: "pink", prompt: "", paused: false, prompt_auto: false, discoverable: false, bg_url: "", instagram: "", tiktok: "", x_handle: "" }
       : null,
   });
 }
@@ -92,8 +92,22 @@ export async function POST(request: Request) {
 }
 
 // Update the custom profile: bio (max 160 chars), avatar image URL (must be
-// https, max 500 chars), theme and custom link question (max 140 chars).
-// Username itself cannot change here — it can only be claimed once, via POST.
+// https, max 500 chars), theme, custom link question (max 140 chars), inbox
+// pause, auto daily prompt, Discover opt-in, background photo and social
+// handles. Username CAN change here (unique, case-insensitive); the old
+// public link stops working after a change.
+function cleanHandle(value: string): string | null {
+  let handle = value.trim().replace(/^@/, "");
+  const fromUrl = handle.match(/(?:instagram\.com|tiktok\.com|(?:x|twitter)\.com)\/@?([^/?#]+)/i);
+  if (fromUrl) handle = fromUrl[1];
+  handle = handle.replace(/\/$/, "");
+  if (handle === "") return "";
+  return /^[a-zA-Z0-9_.]{1,100}$/.test(handle) ? handle : null;
+}
+
+function escapeLike(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
 export async function PATCH(request: Request) {
   const c = clients();
   if (!c) return NextResponse.json({ error: "Supabase belum dikonfigurasi." }, { status: 503 });
@@ -108,7 +122,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Request terlalu besar." }, { status: 413 });
     }
     const body = JSON.parse(rawBody);
-    const updates: { bio?: string; avatar_url?: string; theme?: string; prompt?: string } = {};
+    const updates: { bio?: string; avatar_url?: string; theme?: string; prompt?: string; username?: string; paused?: boolean; prompt_auto?: boolean; discoverable?: boolean; bg_url?: string; instagram?: string; tiktok?: string; x_handle?: string } = {};
     if (typeof body.bio === "string") {
       const bio = body.bio.trim();
       if (bio.length > 160) return NextResponse.json({ error: "Bio maksimal 160 karakter." }, { status: 400 });
@@ -140,6 +154,48 @@ export async function PATCH(request: Request) {
       const prompt = body.prompt.trim();
       if (prompt.length > 140) return NextResponse.json({ error: "Pertanyaan maksimal 140 karakter." }, { status: 400 });
       updates.prompt = prompt;
+    }
+    if (typeof body.username === "string") {
+      const newUsername = body.username.trim().replace(/^@/, "");
+      if (!usernamePattern.test(newUsername)) {
+        return NextResponse.json({ error: "Username 1–24 karakter: huruf, angka, titik, atau underscore." }, { status: 400 });
+      }
+      const { data: taken } = await c.admin.from("ngl_profiles")
+        .select("user_id").ilike("username", escapeLike(newUsername)).maybeSingle();
+      if (taken && taken.user_id !== user.id) {
+        return NextResponse.json({ error: "Username sudah dipakai. Coba username lain." }, { status: 409 });
+      }
+      updates.username = newUsername;
+    }
+    if (typeof body.paused === "boolean") updates.paused = body.paused;
+    if (typeof body.prompt_auto === "boolean") updates.prompt_auto = body.prompt_auto;
+    if (typeof body.discoverable === "boolean") updates.discoverable = body.discoverable;
+    if (typeof body.bg_url === "string") {
+      const bgUrl = body.bg_url.trim();
+      if (bgUrl !== "" && bgUrl.length > 500) {
+        return NextResponse.json({ error: "URL background terlalu panjang." }, { status: 400 });
+      }
+      if (bgUrl !== "") {
+        let parsed: URL;
+        try {
+          parsed = new URL(bgUrl);
+        } catch {
+          return NextResponse.json({ error: "URL background harus diawali https://." }, { status: 400 });
+        }
+        if (parsed.protocol !== "https:") {
+          return NextResponse.json({ error: "URL background harus diawali https://." }, { status: 400 });
+        }
+      }
+      updates.bg_url = bgUrl;
+    }
+    for (const field of ["instagram", "tiktok", "x_handle"] as const) {
+      if (typeof body[field] === "string") {
+        const cleaned = cleanHandle(body[field]);
+        if (cleaned === null) {
+          return NextResponse.json({ error: "Username sosmed tidak valid." }, { status: 400 });
+        }
+        updates[field] = cleaned;
+      }
     }
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "Tidak ada perubahan profil." }, { status: 400 });

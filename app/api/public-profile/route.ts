@@ -26,7 +26,7 @@ export async function GET(request: Request) {
   });
   const { data, error } = await supabase
     .from("ngl_profiles")
-    .select("username, bio, avatar_url, theme, prompt")
+    .select("username, bio, avatar_url, theme, prompt, prompt_auto, paused, bg_url, instagram, tiktok, x_handle")
     .ilike("username", username)
     .maybeSingle();
   if (error) {

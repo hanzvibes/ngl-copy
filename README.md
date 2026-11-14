@@ -26,13 +26,17 @@ Apply these migrations in order if setting up a fresh environment:
 2. `supabase/migrations/202610300002_profiles_and_inbox.sql`
 3. `supabase/migrations/202610300003_new_features.sql`
 4. `supabase/migrations/202610300004_custom_prompt_public_answers.sql`
+5. `supabase/migrations/202610300005_batch3_features.sql`
 
 The third migration adds custom profiles (bio, avatar URL, theme), message
 replies, likes and read state. It is additive: if it has not been applied yet,
 the dashboard and send page keep working with defaults, but saving a reply,
 like, read state or profile customisation will fail until it is applied. The
 fourth migration adds the custom link question and the public-answers flag,
-with the same fallback behaviour.
+with the same fallback behaviour. The fifth adds inbox pause, the auto daily
+prompt, Discover opt-in, background photo, social links, archive/pin, emoji
+reactions and the blocked-senders table, and teaches the submit function to
+refuse paused inboxes and blocked senders.
 
 The second migration adds owner-bound profiles and private inbox access. Public messages are accepted only for a claimed username. Owners can read/delete only their own messages. The API validates Supabase access tokens before performing service-role queries, and the service-role key is server-only.
 
@@ -60,6 +64,46 @@ In Supabase Auth settings, configure the site's allowed redirect URLs and email 
   your story.
 - **Public answers feed** — reply to a message, tap Publish, and it appears
   on your public link for everyone to read. Unpublish any time.
+- **Profanity filter** — a small Indonesian + English word list is checked
+  server-side before a message is stored; blocked messages get a plain
+  explanation. It is a baseline, not perfect moderation.
+- **Captcha (Cloudflare Turnstile)** — optional. Set
+  `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` to enable it;
+  without keys the widget is skipped and sending works as before.
+- **Pause inbox** — the owner can pause receiving messages; the public link
+  shows a paused state and the submit function refuses new messages.
+- **Report & block** — block the sender of any message from the dashboard;
+  blocked senders are refused at submit time. Only a sha256 hash of the
+  sender is stored, never a raw IP. The blocked list can be managed (unblock)
+  from the dashboard.
+- **Search & export** — search inbox messages from the dashboard and export
+  the whole inbox as a JSON file.
+- **Archive & pin** — archive messages out of the way (separate tab) and pin
+  the important ones to the top of the inbox.
+- **Emoji reactions** — react to a message with ❤️ 😂 😮 🔥 😢 👍.
+- **Weekly chart** — message counts for the last 7 days, next to the stats.
+- **Social links** — Instagram, TikTok and X handles on the profile, shown
+  as icons on the public link (handles or full profile URLs both work).
+- **Change username** — from the dashboard profile editor. The old public
+  link stops working after a change.
+- **Background photo** — a https image URL shown behind the public link.
+- **Daily prompt** — when enabled, the link question changes automatically
+  every day (deterministic by date, no cron).
+- **Share to WhatsApp / X / Threads** — share your link via those apps from
+  the dashboard.
+- **Discover** — `/discover` lists owners who opted in; opt in from the
+  profile editor.
+- **Story card styles** — Classic, Minimal and Bold variants for the
+  share-to-Story image, chosen in the dashboard.
+- **Embed widget** — copy an `<iframe>` snippet from the dashboard to put
+  your link card on a website or blog (`/embed/[username]`).
+- **New-message notifications** — browser notifications while the dashboard
+  is open (polled once a minute). No email provider needed.
+- **Light mode** — toggle in the navigation; saved in localStorage and
+  applied before first paint.
+- **Language ID / EN** — toggle in the navigation; saved in localStorage.
+  The main UI (landing, send page, dashboard) switches; server-driven
+  error/notice messages stay in their original language.
 
 ## Verification
 
