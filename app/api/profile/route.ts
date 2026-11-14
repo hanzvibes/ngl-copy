@@ -5,7 +5,7 @@ import { isThemeId } from "@/lib/themes";
 export const runtime = "nodejs";
 const usernamePattern = /^[a-zA-Z0-9_.]{1,24}$/;
 
-const PROFILE_COLUMNS = "username, created_at, bio, avatar_url, theme";
+const PROFILE_COLUMNS = "username, created_at, bio, avatar_url, theme, prompt";
 
 function clients() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -50,7 +50,7 @@ export async function GET(request: Request) {
   if (legacy.error) return NextResponse.json({ error: "Profil gagal dimuat." }, { status: 500 });
   return NextResponse.json({
     profile: legacy.data
-      ? { ...legacy.data, bio: "", avatar_url: "", theme: "pink" }
+      ? { ...legacy.data, bio: "", avatar_url: "", theme: "pink", prompt: "" }
       : null,
   });
 }
@@ -92,8 +92,8 @@ export async function POST(request: Request) {
 }
 
 // Update the custom profile: bio (max 160 chars), avatar image URL (must be
-// https, max 500 chars) and theme. Username itself cannot change here — it
-// can only be claimed once, via POST.
+// https, max 500 chars), theme and custom link question (max 140 chars).
+// Username itself cannot change here — it can only be claimed once, via POST.
 export async function PATCH(request: Request) {
   const c = clients();
   if (!c) return NextResponse.json({ error: "Supabase belum dikonfigurasi." }, { status: 503 });
@@ -108,7 +108,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Request terlalu besar." }, { status: 413 });
     }
     const body = JSON.parse(rawBody);
-    const updates: { bio?: string; avatar_url?: string; theme?: string } = {};
+    const updates: { bio?: string; avatar_url?: string; theme?: string; prompt?: string } = {};
     if (typeof body.bio === "string") {
       const bio = body.bio.trim();
       if (bio.length > 160) return NextResponse.json({ error: "Bio maksimal 160 karakter." }, { status: 400 });
@@ -135,6 +135,11 @@ export async function PATCH(request: Request) {
     if (typeof body.theme === "string") {
       if (!isThemeId(body.theme)) return NextResponse.json({ error: "Tema tidak dikenal." }, { status: 400 });
       updates.theme = body.theme;
+    }
+    if (typeof body.prompt === "string") {
+      const prompt = body.prompt.trim();
+      if (prompt.length > 140) return NextResponse.json({ error: "Pertanyaan maksimal 140 karakter." }, { status: 400 });
+      updates.prompt = prompt;
     }
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "Tidak ada perubahan profil." }, { status: 400 });
