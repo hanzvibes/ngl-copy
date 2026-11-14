@@ -11,7 +11,7 @@ export type ShareCardInput = {
   theme: ThemeId | string;
 };
 
-function roundRect(
+export function roundRect(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
@@ -28,7 +28,7 @@ function roundRect(
   ctx.closePath();
 }
 
-function wrapText(
+export function wrapText(
   ctx: CanvasRenderingContext2D,
   text: string,
   maxWidth: number,
