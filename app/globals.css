@@ -210,146 +210,63 @@ html[data-theme="light"] .tab-bar-item.active .tab-icon-wrap{background:rgba(255
 html[data-theme="light"] .tab-badge{border-color:#fff}
 html[data-theme="light"] .sheet-handle{background:rgba(36,17,26,.2)}
 
-/* NGL look (Option C) — pure-black shell, white cards, purple-blue gradient
-   headers, pink-orange gradient CTAs. Light mode already renders these
-   surfaces white, so these rules converge there instead of clashing. */
+/* NGL look (Option C) — structure + dark cards that match the pure-black
+   shell. Cards are near-black (#17141d) so they sit in harmony with the
+   background; the NGL structure stays (gradient headers, Step 1/2, games,
+   pink-orange CTAs). Dark rules are scoped to html:not([data-theme="light"]);
+   light mode keeps white cards via the addendum below (the base light-mode
+   block already covers the shared surfaces). */
 :root{--ngl-purple:#8b5cf6;--ngl-blue:#3b82f6;--ngl-pink:#ff5e8a;--ngl-orange:#ff8a3d}
 
-/* --- white NGL card (dashboard play card, settings panels, send form) --- */
-.ngl-panel,.ngl-card{background:#fff;color:#111;border:0;border-radius:24px;box-shadow:0 20px 60px rgba(0,0,0,.45);padding:24px}
-.ngl-panel h2,.ngl-panel h3,.ngl-card h2,.ngl-card h3{color:#111}
-.ngl-panel .panel-heading p,.ngl-card .panel-heading p{color:#666}
-.ngl-panel .dashboard-form label,.ngl-card .dashboard-form label{color:#444}
-.ngl-panel .dashboard-form input,.ngl-panel .dashboard-form textarea,.ngl-card .dashboard-form input,.ngl-card .dashboard-form textarea{background:#f6f6f8;border-color:#e5e5ea;color:#111}
-.ngl-panel .dashboard-form input::placeholder,.ngl-panel .dashboard-form textarea::placeholder,.ngl-card .dashboard-form input::placeholder,.ngl-card .dashboard-form textarea::placeholder{color:#9a9aa5}
-.ngl-panel .dashboard-form input:focus,.ngl-panel .dashboard-form textarea:focus,.ngl-card .dashboard-form input:focus,.ngl-card .dashboard-form textarea:focus{border-color:#ff5e8a}
-.ngl-panel .dashboard-username{background:#f6f6f8;border-color:#e5e5ea;color:#ff5e8a}
-.ngl-panel .dashboard-username input{color:#111}
-.ngl-panel .privacy-note,.ngl-card .privacy-note{color:#777}
-.ngl-panel .auth-switch{color:#777}
-.ngl-panel .field-hint{color:#999}
-.ngl-panel .dashboard-icon{background:#ffe9f1;color:#ff5e8a}
-.ngl-panel .secondary-button,.ngl-card .secondary-button{background:#f2f2f5;border-color:#e5e5ea;color:#111}
-.ngl-panel .secondary-button:hover,.ngl-card .secondary-button:hover{border-color:rgba(255,94,138,.5)}
-.ngl-panel .logout-button{color:#888}
-.ngl-panel .qr-copy p{color:#666}
-.ngl-panel .qr-copy strong{color:#111}
-.ngl-panel .profile-summary-copy h2{color:#111}
-.ngl-panel .profile-summary-copy p{color:#555}
-.ngl-panel .profile-bio{color:#555}
-.ngl-panel .blocked-list li{border-color:#eee;color:#111}
-.ngl-panel .blocked-list code{color:#555}
-.ngl-panel .blocked-list span{color:#999}
-.ngl-panel .theme-swatch.selected{border-color:#111;box-shadow:0 0 0 2px rgba(0,0,0,.15)}
-.ngl-panel .toggle-row{color:#111}
-.ngl-panel .chart-bar-col span{color:#999}
-.ngl-panel .chart-bar-col strong{color:#111}
-.ngl-panel .loading-panel{color:#666}
-
-/* --- NGL gradient header strip (white cards) --- */
+/* --- structure (both modes) --- */
+.ngl-panel,.ngl-card{border-radius:24px;padding:24px}
 .ngl-head{background:linear-gradient(90deg,#8b5cf6,#3b82f6);color:#fff;border-radius:16px;padding:14px 18px;font:700 18px 'Space Grotesk',sans-serif;letter-spacing:-.3px;text-transform:lowercase;margin:0 0 16px}
-
-/* --- NGL share / send CTA --- */
 .ngl-share-btn{border:0;width:100%;display:flex;justify-content:center;align-items:center;gap:8px;background:linear-gradient(110deg,#ff5e8a,#ff8a3d);color:#fff;border-radius:999px;padding:16px 24px;font-size:15px;font-weight:700;cursor:pointer;transition:transform .18s,filter .18s}
 .ngl-share-btn:hover{transform:translateY(-1px);filter:brightness(1.07)}
 .ngl-step{display:flex;flex-direction:column;gap:10px;margin-top:20px}
-.ngl-step>span{font:700 13px 'Space Grotesk',sans-serif;letter-spacing:-.2px;color:#111}
-.ngl-step .ngl-link-row{display:flex;align-items:center;gap:8px;background:#f6f6f8;border:1px solid #e5e5ea;border-radius:10px;padding:10px 12px;font-size:13px;color:#333;overflow-wrap:anywhere}
+.ngl-step .ngl-link-row{display:flex;align-items:center;gap:8px;border-radius:10px;padding:10px 12px;font-size:13px;overflow-wrap:anywhere}
 .ngl-step .ngl-link-row button{flex:0 0 auto}
-
-/* --- landing: white claim card + NGL preview window --- */
-.create-card{background:#fff;color:#111;border:0;box-shadow:0 20px 60px rgba(0,0,0,.5)}
-.create-card>label{color:#555}
-.username-input{background:#f6f6f8;border-color:#e5e5ea}
-.username-input input{color:#111}
-.username-input input::placeholder{color:#9a9aa5}
-.username-input .at{color:#999}
-.card-foot{color:#777}
-.message-window{background:#fff;color:#111;border:0;box-shadow:0 25px 100px rgba(0,0,0,.55)}
-.window-top{color:#666;border-color:#eee}
-.window-dots i{background:#ddd}
-.window-dots i:first-child{background:#ff5e8a}
-.inbox-count{background:#ffe9f1;color:#ff5e8a}
-.profile-row strong{color:#111}
-.profile-row small{color:#777}
-.message-bubble{background:#f6f6f8;border-color:#eee}
-.message-bubble p{color:#111}
-.bubble-bottom span{color:#888}
-.reply-hint{color:#888}
-
-/* --- games section (landing) --- */
 .games{padding:64px 0 96px}
-.games-sub{text-align:center;color:#a79dac;font-size:14px;line-height:1.7;max-width:520px;margin:16px auto 0}
-.ngl-panel .share-via>span{color:#777}
 .games-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:40px}
-.game-card{background:#fff;color:#111;border:0;border-radius:20px;padding:20px;text-align:left;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.35);transition:transform .2s}
+.game-card{border:0;border-radius:20px;padding:20px;text-align:left;cursor:pointer;transition:transform .2s}
 .game-card:hover{transform:translateY(-3px)}
 .game-gradient{height:8px;border-radius:99px;margin-bottom:16px}
 .game-card h3{font:700 20px 'Space Grotesk',sans-serif;letter-spacing:-.5px;text-transform:lowercase;margin:0 0 8px}
-.game-card>p{color:#666;font-size:12px;line-height:1.6;margin:0}
-.game-card ul{list-style:none;margin:16px 0 0;padding:16px 0 0;border-top:1px solid #eee;display:none;flex-direction:column;gap:10px}
+.game-card>p{font-size:12px;line-height:1.6;margin:0}
+.game-card ul{list-style:none;margin:16px 0 0;padding:16px 0 0;display:none;flex-direction:column;gap:10px}
 .game-card.open ul{display:flex}
-.game-card li{font-size:13px;line-height:1.5;color:#333}
+.game-card li{font-size:13px;line-height:1.5}
 .game-card li::before{content:"\201C";color:#ff5e8a;font-weight:700}
-
-/* --- landing: How-it-works cards match the other white NGL cards --- */
-.step-card{background:#fff;border:0;box-shadow:0 10px 30px rgba(0,0,0,.35)}
-.step-card h3{color:#111}
-.step-card p{color:#666}
-.step-number{color:#bbb}
-
-/* --- send page: white NGL card --- */
-.send-card{background:#fff;color:#111;border:0;border-radius:28px;overflow:hidden;box-shadow:0 25px 90px rgba(0,0,0,.55);text-align:left}
+.send-card{border-radius:28px;overflow:hidden;text-align:left}
 .send-card .ngl-head{border-radius:0;margin:0}
 .send-card-body{padding:24px}
 .send-card .send-form{background:transparent;border:0;box-shadow:none;padding:0}
-.send-card .send-form label{color:#444}
-.send-card .send-prompt{color:#111}
-.send-card .send-bio{color:#555}
-.send-card textarea{background:#f6f6f8;border-color:#e5e5ea;color:#111}
-.send-card textarea::placeholder{color:#9a9aa5}
-.send-card textarea:focus{border-color:#ff5e8a}
-.send-card .form-meta{color:#888}
-.send-card .privacy-note{color:#888}
-.send-card .form-error{color:#e11d48}
-.send-card .success-panel{background:#fff;border-color:#eee;box-shadow:none}
-.send-card .success-panel h2{color:#111}
-.send-card .success-panel p{color:#666}
 
-/* --- dashboard: white stat cards + white inbox cards --- */
-.stat-card{background:#fff;color:#111;border:0;box-shadow:0 10px 30px rgba(0,0,0,.35)}
-.stat-card strong{color:#111}
-.stat-card span{color:#666}
-.inbox-message{background:#fff;color:#111;border:0;box-shadow:0 10px 30px rgba(0,0,0,.35)}
-.inbox-message>p{color:#111}
-.message-meta{color:#999}
-.message-meta>span:first-child{color:#ff5e8a}
-.message-meta time{color:#999}
-.delete-message{color:#aaa}
-.message-reply{background:#fff0f4;border-left-color:#ff5e8a}
-.message-reply p{color:#111}
-.action-button{background:#f2f2f5;border-color:#e5e5ea;color:#111}
-.action-button:hover{border-color:rgba(255,94,138,.5)}
-.reply-editor textarea{background:#f6f6f8;border-color:#e5e5ea;color:#111}
-.reply-editor textarea::placeholder{color:#9a9aa5}
-.search-box{background:#fff;border-color:#e5e5ea}
-.search-box input{color:#111}
-.search-box input::placeholder{color:#9a9aa5}
-.card-style-select{background:#fff;border-color:#e5e5ea;color:#111}
+/* --- dark cards (default theme): near-black, in harmony with #000 --- */
+html:not([data-theme="light"]) .ngl-panel,html:not([data-theme="light"]) .ngl-card{background:#17141d;color:#f3edf6;border:1px solid rgba(255,255,255,.08);box-shadow:0 20px 60px rgba(0,0,0,.45)}
+html:not([data-theme="light"]) .ngl-panel h2,html:not([data-theme="light"]) .ngl-panel h3,html:not([data-theme="light"]) .ngl-card h2,html:not([data-theme="light"]) .ngl-card h3{color:#fff}
+html:not([data-theme="light"]) .send-card{background:#17141d;color:#f3edf6;border:1px solid rgba(255,255,255,.08);box-shadow:0 25px 90px rgba(0,0,0,.55)}
+html:not([data-theme="light"]) .game-card{background:#17141d;color:#f3edf6;border:1px solid rgba(255,255,255,.08);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+html:not([data-theme="light"]) .game-card h3{color:#fff}
+html:not([data-theme="light"]) .game-card>p{color:#a59baa}
+html:not([data-theme="light"]) .game-card ul{border-top:1px solid rgba(255,255,255,.08)}
+html:not([data-theme="light"]) .game-card li{color:#e8e2ea}
+html:not([data-theme="light"]) .ngl-step>span{color:#fff}
+html:not([data-theme="light"]) .ngl-link-row{background:#100e16;border:1px solid rgba(255,255,255,.1);color:#f3edf6}
+html:not([data-theme="light"]) .games-sub{color:#a79dac}
 
-/* --- answers on the send page --- */
-.answer-card{background:#fff;color:#111;border:0;box-shadow:0 10px 30px rgba(0,0,0,.35)}
-.answer-question{color:#111}
-.answer-card time{color:#999}
+/* --- light mode: NGL cards stay white --- */
+html[data-theme="light"] .ngl-panel,html[data-theme="light"] .ngl-card{background:#fff;color:#111;border:1px solid rgba(36,17,26,.08);box-shadow:0 1px 2px rgba(36,17,26,.05)}
+html[data-theme="light"] .ngl-panel h2,html[data-theme="light"] .ngl-panel h3,html[data-theme="light"] .ngl-card h2,html[data-theme="light"] .ngl-card h3{color:#24111a}
+html[data-theme="light"] .send-card{background:#fff;color:#111;border:1px solid rgba(36,17,26,.08);box-shadow:0 1px 2px rgba(36,17,26,.05)}
+html[data-theme="light"] .game-card{background:#fff;color:#111;border:1px solid rgba(36,17,26,.08);box-shadow:0 1px 2px rgba(36,17,26,.05)}
+html[data-theme="light"] .game-card h3{color:#24111a}
+html[data-theme="light"] .game-card>p{color:#5c5260}
+html[data-theme="light"] .game-card ul{border-top:1px solid rgba(36,17,26,.08)}
+html[data-theme="light"] .game-card li{color:#24111a}
+html[data-theme="light"] .ngl-step>span{color:#24111a}
+html[data-theme="light"] .ngl-link-row{background:#f6f2f7;border:1px solid rgba(36,17,26,.12);color:#24111a}
+html[data-theme="light"] .games-sub{color:#5c5260}
 
-/* --- discover + embed --- */
-.discover-card{background:#fff;color:#111;border:0;box-shadow:0 10px 30px rgba(0,0,0,.35)}
-.discover-card strong{color:#111}
-.discover-prompt{color:#444}
-.discover-bio{color:#666}
-.embed-card{background:#fff;color:#111;border:0;box-shadow:0 10px 30px rgba(0,0,0,.35)}
-.embed-copy strong{color:#111}
-.embed-copy p{color:#555}
-.embed-copy span{color:#ff5e8a}
 @media(max-width:850px){.games-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){.games{padding:40px 0 56px}.games-grid{grid-template-columns:1fr}.ngl-panel,.ngl-card{padding:16px}.send-card-body{padding:16px}}
