@@ -33,3 +33,10 @@ export function pickRandomQuestion(current?: string): string {
   const list = pool.length > 0 ? pool : RANDOM_QUESTIONS;
   return list[Math.floor(Math.random() * list.length)];
 }
+
+// Deterministic daily question: everyone sees the same prompt on the same
+// day, and it changes automatically at midnight UTC. No cron or storage.
+export function getDailyQuestion(date: Date = new Date()): string {
+  const dayNumber = Math.floor(date.getTime() / 86_400_000);
+  return RANDOM_QUESTIONS[dayNumber % RANDOM_QUESTIONS.length];
+}

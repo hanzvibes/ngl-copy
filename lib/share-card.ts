@@ -4,11 +4,14 @@
 // supports sharing files, and falls back to downloading the PNG.
 import { THEMES, themeOrDefault, type ThemeId } from "./themes";
 
+export type CardStyle = "classic" | "minimal" | "bold";
+
 export type ShareCardInput = {
   username: string;
   message: string;
   reply: string | null;
   theme: ThemeId | string;
+  style?: CardStyle;
 };
 
 export function roundRect(
@@ -57,28 +60,40 @@ export function wrapText(
 
 function drawCard(input: ShareCardInput): HTMLCanvasElement {
   const theme = THEMES[themeOrDefault(input.theme)];
+  const style = input.style ?? "classic";
   const canvas = document.createElement("canvas");
   canvas.width = 1080;
   canvas.height = 1920;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas is not available in this browser.");
 
-  // Background: vertical gradient with soft decorative circles.
-  const bg = ctx.createLinearGradient(0, 0, 0, 1920);
-  bg.addColorStop(0, "#17101e");
-  bg.addColorStop(0.55, theme.bg);
-  bg.addColorStop(1, "#0c0a11");
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, 1080, 1920);
-  ctx.globalAlpha = 0.22;
-  ctx.fillStyle = "#ffffff";
-  ctx.beginPath();
-  ctx.arc(900, 260, 260, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(140, 1650, 300, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalAlpha = 1;
+  // Background per card style.
+  if (style === "minimal") {
+    ctx.fillStyle = "#16121d";
+    ctx.fillRect(0, 0, 1080, 1920);
+  } else if (style === "bold") {
+    const bg = ctx.createLinearGradient(0, 0, 1080, 1920);
+    bg.addColorStop(0, theme.bg);
+    bg.addColorStop(1, theme.bg2);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, 1080, 1920);
+  } else {
+    const bg = ctx.createLinearGradient(0, 0, 0, 1920);
+    bg.addColorStop(0, "#17101e");
+    bg.addColorStop(0.55, theme.bg);
+    bg.addColorStop(1, "#0c0a11");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, 1080, 1920);
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(900, 260, 260, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(140, 1650, 300, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
 
   // Brand.
   ctx.fillStyle = "#ffffff";
@@ -110,26 +125,27 @@ function drawCard(input: ShareCardInput): HTMLCanvasElement {
 
   // Message bubble.
   let y = 470;
-  ctx.font = "400 44px 'DM Sans', sans-serif";
-  ctx.fillStyle = "#1c1420";
+  const msgFont = style === "bold" ? "500 52px 'DM Sans', sans-serif" : "400 44px 'DM Sans', sans-serif";
+  const msgLine = style === "bold" ? 72 : 62;
+  ctx.font = msgFont;
   const messageLines = wrapText(ctx, input.message, 800);
-  const messageHeight = 90 + messageLines.length * 62;
-  ctx.fillStyle = "rgba(255,255,255,.96)";
+  const messageHeight = 90 + messageLines.length * msgLine;
+  ctx.fillStyle = style === "minimal" ? "rgba(255,255,255,.07)" : "rgba(255,255,255,.96)";
   roundRect(ctx, 80, y, 920, messageHeight, 36);
   ctx.fill();
-  ctx.fillStyle = theme.bg;
+  ctx.fillStyle = style === "minimal" ? theme.accent : theme.bg;
   ctx.font = "700 26px 'DM Sans', sans-serif";
   ctx.fillText("A N O N Y M O U S", 120, y + 62);
-  ctx.fillStyle = "#1c1420";
-  ctx.font = "400 44px 'DM Sans', sans-serif";
+  ctx.fillStyle = style === "minimal" ? "#f3edf6" : "#1c1420";
+  ctx.font = msgFont;
   messageLines.forEach((line, i) => {
-    ctx.fillText(line, 120, y + 132 + i * 62);
+    ctx.fillText(line, 120, y + 132 + i * msgLine);
   });
   y += messageHeight + 36;
 
   // Owner reply, when there is one.
   if (input.reply && input.reply.trim()) {
-    ctx.fillStyle = "rgba(12,10,17,.55)";
+    ctx.fillStyle = style === "minimal" ? "rgba(255,255,255,.06)" : "rgba(12,10,17,.55)";
     ctx.font = "400 44px 'DM Sans', sans-serif";
     const replyLines = wrapText(ctx, input.reply.trim(), 800);
     const replyHeight = 100 + replyLines.length * 62;
