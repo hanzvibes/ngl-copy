@@ -6,6 +6,7 @@ import { ArrowLeft, Compass, Moon, Sun } from "lucide-react";
 import { THEMES, themeOrDefault, type ThemeId } from "@/lib/themes";
 import { tr, useLang } from "@/lib/i18n";
 import { getThemeMode, toggleThemeMode, type ThemeMode } from "@/lib/theme";
+import AppTabBar from "@/components/AppTabBar";
 
 type DiscoverProfile = { username: string; bio: string; avatar_url: string; theme: ThemeId; prompt: string };
 
@@ -29,8 +30,8 @@ export default function DiscoverPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  return <main className="dashboard-page" id="main" tabIndex={-1}><a className="skip-link" href="#main">{t("a11y.skip")}</a>
-    <header className="dashboard-nav"><Link href="/" className="back-link"><ArrowLeft size={17}/><span>ngl.</span></Link><div className="nav-actions"><button className="icon-mini" onClick={() => setThemeMode(toggleThemeMode())} aria-label="Toggle theme">{themeMode === "light" ? <Moon size={15}/> : <Sun size={15}/>}</button><button className="lang-toggle" onClick={() => setLang(lang === "id" ? "en" : "id")}>{lang === "id" ? "EN" : "ID"}</button></div></header>
+  return <main className="dashboard-page has-tabbar" id="main" tabIndex={-1}><a className="skip-link" href="#main">{t("a11y.skip")}</a>
+    <header className="dashboard-nav"><div className="app-bar-inner"><Link href="/" className="back-link"><ArrowLeft size={17}/><span>ngl.</span></Link><div className="nav-actions"><button className="icon-mini" onClick={() => setThemeMode(toggleThemeMode())} aria-label="Toggle theme">{themeMode === "light" ? <Moon size={15}/> : <Sun size={15}/>}</button><button className="lang-toggle" onClick={() => setLang(lang === "id" ? "en" : "id")}>{lang === "id" ? "EN" : "ID"}</button></div></div></header>
     <section className="dashboard-shell">
       <div className="dashboard-heading"><span className="eyebrow">FIND SOMEONE TO ASK</span><h1><span className="gradient-text">{t("nav.discover")}</span></h1><p>{lang === "id" ? "Link yang pemiliknya memilih tampil di sini. Ketuk salah satu untuk mengirim pesan anonim." : "Links whose owners chose to be listed here. Tap one to send an anonymous message."}</p></div>
       {error && <div className="dashboard-alert error-alert" role="alert">{error}</div>}
@@ -45,5 +46,6 @@ export default function DiscoverPage() {
         {p.bio && <p className="discover-bio">{p.bio}</p>}
       </Link>)}</div>}
     </section>
+    <AppTabBar active="discover" lang={lang} />
   </main>;
 }
