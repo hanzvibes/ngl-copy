@@ -2,13 +2,15 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Copy, Eye, EyeOff, Heart, Inbox, LogOut, Mail, Palette, RefreshCw, Reply, Share2, Trash2, UserRound } from "lucide-react";
+import { ArrowLeft, Check, Copy, Eye, EyeOff, Globe, Heart, Inbox, LogOut, Mail, Palette, QrCode, RefreshCw, Reply, Share2, Trash2, UserRound } from "lucide-react";
+import QRCode from "qrcode";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { shareLinkCard } from "@/lib/link-card";
 import { shareStoryCard } from "@/lib/share-card";
 import { THEMES, THEME_IDS, themeOrDefault, type ThemeId } from "@/lib/themes";
 
-type Message = { id: number; message: string; created_at: string; reply: string | null; liked: boolean; is_read: boolean };
-type Profile = { username: string; created_at?: string; bio: string; avatar_url: string; theme: ThemeId };
+type Message = { id: number; message: string; created_at: string; reply: string | null; liked: boolean; is_read: boolean; is_public: boolean };
+type Profile = { username: string; created_at?: string; bio: string; avatar_url: string; theme: ThemeId; prompt: string };
 type Stats = { total: number; today: number; liked: number; unread: number };
 type Filter = "all" | "unread" | "liked";
 
@@ -41,6 +43,9 @@ export default function DashboardPage() {
   const [bioDraft, setBioDraft] = useState("");
   const [avatarDraft, setAvatarDraft] = useState("");
   const [themeDraft, setThemeDraft] = useState<ThemeId>("pink");
+  const [promptDraft, setPromptDraft] = useState("");
+  const [qrUrl, setQrUrl] = useState("");
+  const [sharingLink, setSharingLink] = useState(false);
   const [replyingId, setReplyingId] = useState<number | null>(null);
   const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
   const [sharingId, setSharingId] = useState<number | null>(null);
@@ -68,6 +73,7 @@ export default function DashboardPage() {
         setBioDraft(nextProfile.bio || "");
         setAvatarDraft(nextProfile.avatar_url || "");
         setThemeDraft(themeOrDefault(nextProfile.theme));
+        setPromptDraft(nextProfile.prompt || "");
       }
       const nextMessages = (inboxData.messages || []) as Message[];
       setMessages(nextMessages);
@@ -76,6 +82,17 @@ export default function DashboardPage() {
       setError(e instanceof Error ? e.message : "Data gagal dimuat.");
     } finally { setLoading(false); }
   }
+
+  // QR preview of the public link, regenerated when the profile loads.
+  useEffect(() => {
+    if (!profile) { setQrUrl(""); return; }
+    let active = true;
+    const link = `${window.location.origin}/${profile.username}`;
+    QRCode.toDataURL(link, { width: 240, margin: 1 })
+      .then((url) => { if (active) setQrUrl(url); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [profile]);
 
   useEffect(() => {
     let active = true;
@@ -127,7 +144,7 @@ export default function DashboardPage() {
     try {
       const data = await request("/api/profile", { method: "POST", body: JSON.stringify({ username }) });
       setProfile(data.profile); setUsername(data.profile.username);
-      setBioDraft(data.profile.bio || ""); setAvatarDraft(data.profile.avatar_url || ""); setThemeDraft(themeOrDefault(data.profile.theme));
+      setBioDraft(data.profile.bio || ""); setAvatarDraft(data.profile.avatar_url || ""); setThemeDraft(themeOrDefault(data.profile.theme)); setPromptDraft(data.profile.prompt || "");
       setNotice("Link kamu sudah aktif.");
       const inbox = await request("/api/inbox");
       const nextMessages = (inbox.messages || []) as Message[];
@@ -142,7 +159,7 @@ export default function DashboardPage() {
     try {
       const data = await request("/api/profile", {
         method: "PATCH",
-        body: JSON.stringify({ bio: bioDraft, avatar_url: avatarDraft, theme: themeDraft }),
+        body: JSON.stringify({ bio: bioDraft, avatar_url: avatarDraft, theme: themeDraft, prompt: promptDraft }),
       });
       setProfile(data.profile);
       setNotice("Profil diperbarui.");
@@ -150,7 +167,7 @@ export default function DashboardPage() {
     finally { setBusy(false); }
   }
 
-  async function updateMessage(id: number, patch: { reply?: string; liked?: boolean; is_read?: boolean }) {
+  async function updateMessage(id: number, patch: { reply?: string; liked?: boolean; is_read?: boolean; is_public?: boolean }) {
     setError(""); setNotice("");
     try {
       const data = await request("/api/inbox", { method: "PATCH", body: JSON.stringify({ id, ...patch }) });
@@ -192,6 +209,25 @@ export default function DashboardPage() {
     } catch {
       setError("Gambar Story gagal dibuat di browser ini.");
     } finally { setSharingId(null); }
+  }
+
+  async function shareLink() {
+    if (!profile) return;
+    setSharingLink(true); setError(""); setNotice("");
+    try {
+      const result = await shareLinkCard({
+        username: profile.username,
+        prompt: profile.prompt,
+        bio: profile.bio,
+        theme: profile.theme,
+        origin: window.location.origin,
+      });
+      setNotice(result === "shared"
+        ? "Kartu link dibagikan. Pilih Instagram di menu share."
+        : "Kartu link diunduh (1080×1920). Upload ke Instagram Story kamu.");
+    } catch {
+      setError("Kartu link gagal dibuat di browser ini.");
+    } finally { setSharingLink(false); }
   }
 
   async function copyLink() {
@@ -245,6 +281,10 @@ export default function DashboardPage() {
             <div className="profile-summary-copy"><span className="eyebrow">YOUR PUBLIC LINK</span><h2>@{profile.username}</h2><p>{typeof window !== "undefined" ? window.location.origin : ""}/{profile.username}</p>{profile.bio && <p className="profile-bio">{profile.bio}</p>}</div>
           </div>
           <button className="primary-button full-button" onClick={copyLink}>{copied ? <><Check size={16}/> Copied</> : <><Copy size={16}/> Copy my link</>}</button>
+          <div className="qr-row">
+            {qrUrl && <img className="qr-image" src={qrUrl} alt="QR code to your anonymous link"/>}
+            <div className="qr-copy"><strong>Share your link as a QR card</strong><p>Post it to your story — friends scan it to reach your link.</p><button className="secondary-button" disabled={sharingLink} onClick={()=>void shareLink()}><QrCode size={15}/> {sharingLink ? "Making image…" : "Download link card"}</button></div>
+          </div>
         </section>
 
         <section className="stats-grid" aria-label="Inbox statistics">
@@ -271,6 +311,9 @@ export default function DashboardPage() {
                 </button>
               ))}
             </div>
+            <label htmlFor="prompt">Your question</label>
+            <input id="prompt" value={promptDraft} onChange={e=>setPromptDraft(e.target.value.slice(0,140))} placeholder="Ask me anything..." maxLength={140}/>
+            <span className="field-hint">{promptDraft.length}/140 — shown on your public link</span>
             <button className="primary-button full-button" disabled={busy}>{busy ? "Saving…" : "Save profile"}</button>
           </form>
         </section>
@@ -286,7 +329,7 @@ export default function DashboardPage() {
           {messages.length === 0 ? <div className="dashboard-panel empty-inbox"><div className="empty-icon"><Mail size={22}/></div><h3>Nothing here. Yet.</h3><p>Share your link with friends. Their anonymous messages will show up here.</p><button className="secondary-button" onClick={copyLink}><Copy size={15}/> Share your link</button></div> :
           filteredMessages.length === 0 ? <div className="dashboard-panel empty-inbox"><div className="empty-icon"><Mail size={22}/></div><h3>No messages here.</h3><p>{filter === "unread" ? "You've read everything. Nice." : "No liked messages yet. Tap the heart on a message you love."}</p></div> :
             <div className="inbox-list">{filteredMessages.map(message=><article className={`inbox-message${message.is_read ? " is-read" : ""}`} key={message.id}>
-              <div className="message-meta"><span><span className="anonymous-dot"/> ANONYMOUS</span><time dateTime={message.created_at}>{new Date(message.created_at).toLocaleString()}</time>
+              <div className="message-meta"><span><span className="anonymous-dot"/> ANONYMOUS</span><time dateTime={message.created_at}>{new Date(message.created_at).toLocaleString()}</time>{message.is_public && <span className="public-badge">PUBLIC</span>}
                 <button className={`icon-mini${message.liked ? " liked" : ""}`} onClick={()=>void updateMessage(message.id, { liked: !message.liked })} aria-label={message.liked ? "Unlike message" : "Like message"}><Heart size={15} fill={message.liked ? "currentColor" : "none"}/></button>
                 <button className="icon-mini" onClick={()=>void updateMessage(message.id, { is_read: !message.is_read })} aria-label={message.is_read ? "Mark as unread" : "Mark as read"}>{message.is_read ? <EyeOff size={15}/> : <Eye size={15}/>}</button>
                 <button className="delete-message" onClick={()=>void deleteMessage(message.id)} aria-label="Delete message"><Trash2 size={15}/></button>
@@ -296,6 +339,7 @@ export default function DashboardPage() {
               <div className="message-actions">
                 <button className="action-button" onClick={()=>{ setReplyingId(replyingId === message.id ? null : message.id); setReplyDrafts((d) => ({ ...d, [message.id]: d[message.id] ?? message.reply ?? "" })); }}><Reply size={14}/> {message.reply ? "Edit reply" : "Reply"}</button>
                 <button className="action-button" disabled={sharingId === message.id} onClick={()=>void shareMessage(message)}><Share2 size={14}/> {sharingId === message.id ? "Making image…" : "Share to Story"}</button>
+                <button className={`action-button${message.is_public ? " active" : ""}`} disabled={!message.reply} title={message.reply ? "Show this answer on your public link" : "Reply first to publish"} onClick={()=>void updateMessage(message.id, { is_public: !message.is_public })}><Globe size={14}/> {message.is_public ? "Public" : "Publish"}</button>
               </div>
               {replyingId === message.id && <div className="reply-editor">
                 <textarea value={replyDrafts[message.id] ?? ""} onChange={e=>setReplyDrafts((d) => ({ ...d, [message.id]: e.target.value.slice(0, 500) }))} placeholder="Write your reply..." maxLength={500} rows={3}/>

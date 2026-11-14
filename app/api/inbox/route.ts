@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
-const MESSAGE_COLUMNS = "id, message, created_at, reply, liked, is_read";
+const MESSAGE_COLUMNS = "id, message, created_at, reply, liked, is_read, is_public";
 
 type InboxRow = {
   id: number;
@@ -12,6 +12,7 @@ type InboxRow = {
   reply: string | null;
   liked: boolean;
   is_read: boolean;
+  is_public: boolean;
 };
 
 function clients() {
@@ -73,12 +74,14 @@ export async function GET(request: Request) {
     reply: null,
     liked: false,
     is_read: false,
+    is_public: false,
   }));
   return NextResponse.json({ messages: rows, stats: statsFor(rows) });
 }
 
 // Update one owned message: save/clear a reply (max 500 chars), toggle like,
-// or mark read/unread. At least one of the three must be present.
+// mark read/unread, or publish/unpublish it to the public answers feed.
+// At least one of the four must be present.
 export async function PATCH(request: Request) {
   const { c, user } = await authenticate(request);
   if (!c) return NextResponse.json({ error: "Supabase belum dikonfigurasi." }, { status: 503 });
@@ -99,7 +102,7 @@ export async function PATCH(request: Request) {
     const id = typeof body.id === "string" || typeof body.id === "number" ? String(body.id) : "";
     if (!/^\d{1,19}$/.test(id)) return NextResponse.json({ error: "ID pesan tidak valid." }, { status: 400 });
 
-    const updates: { reply?: string | null; liked?: boolean; is_read?: boolean } = {};
+    const updates: { reply?: string | null; liked?: boolean; is_read?: boolean; is_public?: boolean } = {};
     if (typeof body.reply === "string") {
       const reply = body.reply.trim();
       if (reply.length > 500) return NextResponse.json({ error: "Balasan maksimal 500 karakter." }, { status: 400 });
@@ -107,6 +110,7 @@ export async function PATCH(request: Request) {
     }
     if (typeof body.liked === "boolean") updates.liked = body.liked;
     if (typeof body.is_read === "boolean") updates.is_read = body.is_read;
+    if (typeof body.is_public === "boolean") updates.is_public = body.is_public;
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "Tidak ada perubahan pesan." }, { status: 400 });
     }
