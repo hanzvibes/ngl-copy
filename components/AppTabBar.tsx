@@ -20,7 +20,7 @@ export default function AppTabBar({ active, unread = 0, lang, onTab }: TabBarPro
     { id: "home", label: t("nav.home"), icon: <Home size={22} />, href: "/dashboard" },
     { id: "inbox", label: t("nav.inbox"), icon: <Inbox size={22} />, href: "/dashboard?tab=inbox" },
     { id: "discover", label: t("nav.discover"), icon: <Compass size={22} />, href: "/discover" },
-    { id: "profile", label: t("nav.profile"), icon: <UserRound size={22} />, href: "/dashboard?tab=profile" },
+    { id: "profile", label: t("nav.settings"), icon: <UserRound size={22} />, href: "/settings" },
   ];
   return (
     <nav className="tab-bar" aria-label="App navigation">
@@ -38,7 +38,7 @@ export default function AppTabBar({ active, unread = 0, lang, onTab }: TabBarPro
           </>
         );
         const className = `tab-bar-item${isActive ? " active" : ""}`;
-        if (tab.id === "discover" || !onTab) {
+        if (tab.id === "discover" || tab.id === "profile" || !onTab) {
           return (
             <Link key={tab.id} href={tab.href} className={className} aria-current={isActive ? "page" : undefined}>
               {content}

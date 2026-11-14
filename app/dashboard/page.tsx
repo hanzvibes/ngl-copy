@@ -2,12 +2,12 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Archive, ArrowLeft, AtSign, Ban, Bell, Check, Copy, Download, Eye, EyeOff, Globe, Heart, Inbox, LogOut, Mail, MessageCircle, Moon, Palette, Pin, QrCode, RefreshCw, Reply, Search, Share2, Sun, Trash2, Twitter, UserRound } from "lucide-react";
+import { Archive, ArrowLeft, AtSign, Ban, Bell, Check, Copy, Download, Eye, EyeOff, Globe, Heart, Inbox, LogOut, Mail, MessageCircle, Moon, Pin, QrCode, RefreshCw, Reply, Search, Share2, Sun, Trash2, Twitter, UserRound } from "lucide-react";
 import QRCode from "qrcode";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { shareLinkCard } from "@/lib/link-card";
 import { downloadBlob, renderStoryCardBlob, type CardStyle } from "@/lib/share-card";
-import { THEMES, THEME_IDS, themeOrDefault, type ThemeId } from "@/lib/themes";
+import { THEMES, themeOrDefault, type ThemeId } from "@/lib/themes";
 import { getInitialLang, tr, useLang } from "@/lib/i18n";
 import { getThemeMode, toggleThemeMode, type ThemeMode } from "@/lib/theme";
 import AppTabBar, { type AppTab } from "@/components/AppTabBar";
@@ -16,7 +16,6 @@ type Message = { id: number; message: string; created_at: string; reply: string 
 type Profile = { username: string; created_at?: string; bio: string; avatar_url: string; theme: ThemeId; prompt: string; paused: boolean; prompt_auto: boolean; discoverable: boolean; bg_url: string; instagram: string; tiktok: string; x_handle: string };
 type Stats = { total: number; today: number; liked: number; unread: number; byDay: { date: string; count: number }[] };
 type Filter = "all" | "unread" | "liked" | "archived";
-type Block = { ip_hash: string; created_at: string };
 
 const REACTIONS = ["❤️", "😂", "😮", "🔥", "😢", "👍"];
 
@@ -62,18 +61,18 @@ export default function DashboardPage() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
-  const [bioDraft, setBioDraft] = useState("");
-  const [avatarDraft, setAvatarDraft] = useState("");
-  const [themeDraft, setThemeDraft] = useState<ThemeId>("pink");
-  const [promptDraft, setPromptDraft] = useState("");
-  const [bgDraft, setBgDraft] = useState("");
-  const [instagramDraft, setInstagramDraft] = useState("");
-  const [tiktokDraft, setTiktokDraft] = useState("");
-  const [xDraft, setXDraft] = useState("");
-  const [pausedDraft, setPausedDraft] = useState(false);
-  const [promptAutoDraft, setPromptAutoDraft] = useState(false);
-  const [discoverableDraft, setDiscoverableDraft] = useState(false);
-  const [newUsernameDraft, setNewUsernameDraft] = useState("");
+
+
+
+
+
+
+
+
+
+
+
+
   const [qrUrl, setQrUrl] = useState("");
   const [sharingLink, setSharingLink] = useState(false);
   const [replyingId, setReplyingId] = useState<number | null>(null);
@@ -82,7 +81,7 @@ export default function DashboardPage() {
   const [storyPreview, setStoryPreview] = useState<{ url: string; blob: Blob; filename: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [cardStyle, setCardStyle] = useState<CardStyle>("classic");
-  const [blocks, setBlocks] = useState<Block[]>([]);
+
   const [notificationsOn, setNotificationsOn] = useState(false);
   const [lang, setLang] = useLang();
   const [themeMode, setThemeMode] = useState<ThemeMode>("dark");
@@ -110,26 +109,10 @@ export default function DashboardPage() {
       setProfile(nextProfile);
       if (nextProfile) {
         setUsername(nextProfile.username);
-        setBioDraft(nextProfile.bio || "");
-        setAvatarDraft(nextProfile.avatar_url || "");
-        setThemeDraft(themeOrDefault(nextProfile.theme));
-        setPromptDraft(nextProfile.prompt || "");
-        setBgDraft(nextProfile.bg_url || "");
-        setInstagramDraft(nextProfile.instagram || "");
-        setTiktokDraft(nextProfile.tiktok || "");
-        setXDraft(nextProfile.x_handle || "");
-        setPausedDraft(Boolean(nextProfile.paused));
-        setPromptAutoDraft(Boolean(nextProfile.prompt_auto));
-        setDiscoverableDraft(Boolean(nextProfile.discoverable));
-        setNewUsernameDraft(nextProfile.username);
       }
       const nextMessages = (inboxData.messages || []) as Message[];
       setMessages(nextMessages);
       setStats(inboxData.stats || computeStats(nextMessages));
-      try {
-        const blocksData = await request("/api/blocks");
-        setBlocks(blocksData.blocks || []);
-      } catch { setBlocks([]); }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Data gagal dimuat.");
     } finally { setLoading(false); }
@@ -177,7 +160,7 @@ export default function DashboardPage() {
       const preset = new URLSearchParams(window.location.search).get("username");
       if (preset) setUsername(preset.replace(/[^a-zA-Z0-9_.]/g, "").slice(0, 24));
       const tabParam = new URLSearchParams(window.location.search).get("tab");
-      if (tabParam === "inbox" || tabParam === "profile" || tabParam === "home") setTab(tabParam);
+      if (tabParam === "inbox" || tabParam === "home") setTab(tabParam);
       supabase.auth.getSession().then(({ data }) => {
         if (!active) return;
         setIsAuthenticated(Boolean(data.session));
@@ -188,7 +171,7 @@ export default function DashboardPage() {
         if (!active) return;
         setIsAuthenticated(Boolean(session));
         if (session) { setLoading(true); void loadPrivateData(); }
-        else { setProfile(null); setMessages([]); setStats({ total: 0, today: 0, liked: 0, unread: 0, byDay: [] }); setBlocks([]); setLoading(false); }
+        else { setProfile(null); setMessages([]); setStats({ total: 0, today: 0, liked: 0, unread: 0, byDay: [] }); setLoading(false); }
       });
       return () => { active = false; subscription.unsubscribe(); };
     } catch (e) {
@@ -222,39 +205,12 @@ export default function DashboardPage() {
     try {
       const data = await request("/api/profile", { method: "POST", body: JSON.stringify({ username }) });
       setProfile(data.profile); setUsername(data.profile.username);
-      setBioDraft(data.profile.bio || ""); setAvatarDraft(data.profile.avatar_url || ""); setThemeDraft(themeOrDefault(data.profile.theme)); setPromptDraft(data.profile.prompt || "");
-      setBgDraft(data.profile.bg_url || ""); setInstagramDraft(data.profile.instagram || ""); setTiktokDraft(data.profile.tiktok || ""); setXDraft(data.profile.x_handle || "");
-      setPausedDraft(Boolean(data.profile.paused)); setPromptAutoDraft(Boolean(data.profile.prompt_auto)); setDiscoverableDraft(Boolean(data.profile.discoverable));
-      setNewUsernameDraft(data.profile.username);
       setNotice("Link kamu sudah aktif.");
       const inbox = await request("/api/inbox");
       const nextMessages = (inbox.messages || []) as Message[];
       setMessages(nextMessages);
       setStats(inbox.stats || computeStats(nextMessages));
     } catch (e) { setError(e instanceof Error ? e.message : "Username gagal dibuat."); }
-    finally { setBusy(false); }
-  }
-
-  async function saveProfile(e: FormEvent) {
-    e.preventDefault(); setBusy(true); setError(""); setNotice("");
-    try {
-      const data = await request("/api/profile", {
-        method: "PATCH",
-        body: JSON.stringify({ bio: bioDraft, avatar_url: avatarDraft, theme: themeDraft, prompt: promptDraft, bg_url: bgDraft, instagram: instagramDraft, tiktok: tiktokDraft, x_handle: xDraft, paused: pausedDraft, prompt_auto: promptAutoDraft, discoverable: discoverableDraft }),
-      });
-      setProfile(data.profile);
-      setNotice("Profil diperbarui.");
-    } catch (e) { setError(e instanceof Error ? e.message : "Profil gagal disimpan."); }
-    finally { setBusy(false); }
-  }
-
-  async function changeUsername(e: FormEvent) {
-    e.preventDefault(); setBusy(true); setError(""); setNotice("");
-    try {
-      const data = await request("/api/profile", { method: "PATCH", body: JSON.stringify({ username: newUsernameDraft }) });
-      setProfile(data.profile); setUsername(data.profile.username); setNewUsernameDraft(data.profile.username);
-      setNotice(`Username diganti jadi @${data.profile.username}. Link lama sudah tidak aktif.`);
-    } catch (e) { setError(e instanceof Error ? e.message : "Username gagal diganti."); }
     finally { setBusy(false); }
   }
 
@@ -288,19 +244,8 @@ export default function DashboardPage() {
     setError(""); setNotice("");
     try {
       await request("/api/blocks", { method: "POST", body: JSON.stringify({ messageId }) });
-      const data = await request("/api/blocks");
-      setBlocks(data.blocks || []);
       setNotice("Pengirim diblokir. Pesan darinya tidak akan masuk lagi.");
     } catch (e) { setError(e instanceof Error ? e.message : "Gagal memblokir pengirim."); }
-  }
-
-  async function unblock(ipHash: string) {
-    setError(""); setNotice("");
-    try {
-      await request(`/api/blocks?ip_hash=${encodeURIComponent(ipHash)}`, { method: "DELETE" });
-      setBlocks(blocks.filter((b) => b.ip_hash !== ipHash));
-      setNotice("Blokir dibuka.");
-    } catch (e) { setError(e instanceof Error ? e.message : "Gagal membuka blokir."); }
   }
 
   function exportInbox() {
@@ -449,7 +394,7 @@ export default function DashboardPage() {
 
   return <main className={profile ? "dashboard-page has-tabbar" : "dashboard-page"} id="main" tabIndex={-1}>
     <a className="skip-link" href="#main">{t("a11y.skip")}</a>
-    <header className="dashboard-nav"><div className="app-bar-inner">{profile ? <button type="button" className="app-bar-identity" onClick={() => setTab("profile")} aria-label={t("nav.profile")}>{profile.avatar_url ? <img className="app-bar-avatar" src={profile.avatar_url} alt="" referrerPolicy="no-referrer"/> : <span className="app-bar-avatar app-bar-avatar-initial" style={{ background: THEMES[themeOrDefault(profile.theme)].gradient }}>{profile.username.slice(0, 1).toUpperCase()}</span>}<span>@{profile.username}</span></button> : <Link href="/" className="back-link"><ArrowLeft size={17}/><span>ngl.</span></Link>}<div className="nav-actions"><span className="private-tag"><Inbox size={13}/> private inbox</span><button className="icon-mini" onClick={() => setThemeMode(toggleThemeMode())} aria-label="Toggle theme">{themeMode === "light" ? <Moon size={15}/> : <Sun size={15}/>}</button><button className="lang-toggle" onClick={() => setLang(lang === "id" ? "en" : "id")}>{lang === "id" ? "EN" : "ID"}</button></div></div></header>
+    <header className="dashboard-nav"><div className="app-bar-inner">{profile ? <Link href="/settings" className="app-bar-identity" aria-label={t("nav.settings")}>{profile.avatar_url ? <img className="app-bar-avatar" src={profile.avatar_url} alt="" referrerPolicy="no-referrer"/> : <span className="app-bar-avatar app-bar-avatar-initial" style={{ background: THEMES[themeOrDefault(profile.theme)].gradient }}>{profile.username.slice(0, 1).toUpperCase()}</span>}<span>@{profile.username}</span></Link> : <Link href="/" className="back-link"><ArrowLeft size={17}/><span>ngl.</span></Link>}<div className="nav-actions"><span className="private-tag"><Inbox size={13}/> private inbox</span><button className="icon-mini" onClick={() => setThemeMode(toggleThemeMode())} aria-label="Toggle theme">{themeMode === "light" ? <Moon size={15}/> : <Sun size={15}/>}</button><button className="lang-toggle" onClick={() => setLang(lang === "id" ? "en" : "id")}>{lang === "id" ? "EN" : "ID"}</button></div></div></header>
     <section className="dashboard-shell" data-tab={tab}>
       <div className="dashboard-heading dash-tab-panel" data-panel="home"><span className="eyebrow">YOUR SPACE, YOUR RULES</span><h1>{t("dash.titleA")}<br/><span className="gradient-text">{t("dash.titleB")}</span></h1><p>{t("dash.sub")}</p></div>
       {error && <div className="dashboard-alert error-alert" role="alert">{error}</div>}
@@ -501,47 +446,6 @@ export default function DashboardPage() {
 
         {stats.byDay.length > 0 && <section className="dashboard-panel week-chart"><h3>{t("dash.weekTitle")}</h3><div className="chart-bars" role="img" aria-label={`${t("dash.weekTitle")}: ${chartSummary}`}>{stats.byDay.map((d) => <div className="chart-bar-col" key={d.date} aria-hidden="true"><div className="chart-bar" style={{ height: `${Math.max(4, Math.round((d.count / maxDayCount) * 72))}px` }} title={`${d.date}: ${d.count}`}/><span>{new Date(`${d.date}T00:00:00Z`).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { weekday: "short" })}</span><strong>{d.count}</strong></div>)}</div></section>}</div><div className="dash-tab-panel" data-panel="inbox">
 
-        <section className="dashboard-panel profile-edit-panel">
-          <div className="panel-heading"><div className="dashboard-icon"><Palette size={20}/></div><div><h2>{t("dash.customise")}</h2><p>{t("dash.customiseDesc")}</p></div></div>
-          <form onSubmit={saveProfile} className="dashboard-form">
-            <label htmlFor="bio">{t("dash.bio")}</label>
-            <textarea id="bio" value={bioDraft} onChange={e=>setBioDraft(e.target.value.slice(0,160))} placeholder="A line about you..." maxLength={160} rows={2}/>
-            <span className="field-hint">{bioDraft.length}/160</span>
-            <label htmlFor="avatar">{t("dash.photo")}</label>
-            <input id="avatar" type="url" value={avatarDraft} onChange={e=>setAvatarDraft(e.target.value)} placeholder="https://example.com/photo.jpg"/>
-            <p className="privacy-note">{t("dash.photoHint")}</p>
-            <label htmlFor="bg">{t("dash.bg")}</label>
-            <input id="bg" type="url" value={bgDraft} onChange={e=>setBgDraft(e.target.value)} placeholder="https://example.com/background.jpg"/>
-            <p className="privacy-note">{t("dash.bgHint")}</p>
-            <span className="field-label">{t("dash.theme")}</span>
-            <div className="theme-picker">
-              {THEME_IDS.map((id) => (
-                <button type="button" key={id} className={`theme-swatch${themeDraft === id ? " selected" : ""}`} style={{ background: THEMES[id].gradient }} aria-pressed={themeDraft === id} aria-label={THEMES[id].label} title={THEMES[id].label} onClick={()=>setThemeDraft(id)}>
-                  {themeDraft === id && <Check size={14}/>}
-                </button>
-              ))}
-            </div>
-            <label htmlFor="prompt">{t("dash.question")}</label>
-            <input id="prompt" value={promptDraft} onChange={e=>setPromptDraft(e.target.value.slice(0,140))} placeholder="Ask me anything..." maxLength={140}/>
-            <span className="field-hint">{promptDraft.length}/140 — {t("dash.questionHint")}</span>
-            <label className="toggle-row"><input type="checkbox" checked={promptAutoDraft} onChange={e=>setPromptAutoDraft(e.target.checked)}/><span>{t("dash.daily")}</span></label>
-            <label className="toggle-row"><input type="checkbox" checked={pausedDraft} onChange={e=>setPausedDraft(e.target.checked)}/><span>{t("dash.pause")}</span></label>
-            <label className="toggle-row"><input type="checkbox" checked={discoverableDraft} onChange={e=>setDiscoverableDraft(e.target.checked)}/><span>{t("dash.discoverable")}</span></label>
-            <span className="field-label">{t("dash.socials")}</span>
-            <label htmlFor="instagram">Instagram</label>
-            <input id="instagram" value={instagramDraft} onChange={e=>setInstagramDraft(e.target.value)} placeholder="username" maxLength={100}/>
-            <label htmlFor="tiktok">TikTok</label>
-            <input id="tiktok" value={tiktokDraft} onChange={e=>setTiktokDraft(e.target.value)} placeholder="username" maxLength={100}/>
-            <label htmlFor="x">X</label>
-            <input id="x" value={xDraft} onChange={e=>setXDraft(e.target.value)} placeholder="username" maxLength={100}/>
-            <button className="primary-button full-button" disabled={busy}>{busy ? t("dash.saving") : t("dash.save")}</button>
-          </form>
-          <form onSubmit={changeUsername} className="dashboard-form username-change">
-            <label htmlFor="newUsername">{t("dash.newUsername")}</label>
-            <div className="dashboard-username"><span>@</span><input id="newUsername" value={newUsernameDraft} onChange={e=>setNewUsernameDraft(e.target.value.replace(/[^a-zA-Z0-9_.]/g,"").slice(0,24))} placeholder={profile.username} required/></div>
-            <button className="secondary-button" disabled={busy}>{t("dash.changeUsername")}</button>
-          </form>
-        </section>
 
         <section className="inbox-section"><div className="inbox-title"><div><span className="eyebrow">{t("dash.inboxEyebrow")}</span><h2>{t("dash.inbox")} <span>{messages.length}</span></h2></div><button className="icon-button" aria-label="Refresh inbox" onClick={()=>{setLoading(true);void loadPrivateData();}}><RefreshCw size={16}/></button></div>
           <div className="inbox-tools">
@@ -587,15 +491,8 @@ export default function DashboardPage() {
                 </div>
               </div>}
             </article>)}</div>}
-        </section></div><div className="dash-tab-panel" data-panel="profile">
-
-        <section className="dashboard-panel blocked-panel">
-          <h3>{t("dash.blockedTitle")} <span>({blocks.length})</span></h3>
-          {blocks.length === 0 ? <p className="privacy-note">{t("dash.noBlocked")}</p> :
-            <ul className="blocked-list">{blocks.map((b) => <li key={b.ip_hash}><code>{b.ip_hash.slice(0, 12)}…</code><span>{new Date(b.created_at).toLocaleDateString()}</span><button className="secondary-button" onClick={()=>void unblock(b.ip_hash)}>{t("dash.unblock")}</button></li>)}</ul>}
-        </section>
-        <button className="logout-button" onClick={signOut}><LogOut size={15}/> {t("dash.signOut")}</button>
-      </div></>}
+        </section></div>
+      </>}
     </section>
     {profile && <AppTabBar active={tab} unread={stats.unread} lang={lang} onTab={setTab} />}
     <footer className="message-footer">{t("dash.privacy")}</footer>
