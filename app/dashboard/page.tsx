@@ -6,9 +6,9 @@ import { Archive, ArrowLeft, AtSign, Ban, Bell, Check, Copy, Download, Eye, EyeO
 import QRCode from "qrcode";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { shareLinkCard } from "@/lib/link-card";
-import { shareStoryCard, type CardStyle } from "@/lib/share-card";
+import { downloadBlob, renderStoryCardBlob, type CardStyle } from "@/lib/share-card";
 import { THEMES, THEME_IDS, themeOrDefault, type ThemeId } from "@/lib/themes";
-import { tr, useLang } from "@/lib/i18n";
+import { getInitialLang, tr, useLang } from "@/lib/i18n";
 import { getThemeMode, toggleThemeMode, type ThemeMode } from "@/lib/theme";
 
 type Message = { id: number; message: string; created_at: string; reply: string | null; liked: boolean; is_read: boolean; is_public: boolean; archived: boolean; pinned: boolean; reaction: string | null };
@@ -77,6 +77,7 @@ export default function DashboardPage() {
   const [replyingId, setReplyingId] = useState<number | null>(null);
   const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
   const [sharingId, setSharingId] = useState<number | null>(null);
+  const [storyPreview, setStoryPreview] = useState<{ url: string; blob: Blob; filename: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [cardStyle, setCardStyle] = useState<CardStyle>("classic");
   const [blocks, setBlocks] = useState<Block[]>([]);
@@ -158,7 +159,8 @@ export default function DashboardPage() {
           setMessages(next);
           setStats(inbox.stats || computeStats(next));
           if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-            new Notification("Pesan anonim baru", { body: `Kamu punya ${diff} pesan baru di inbox.` });
+            const nLang = getInitialLang();
+            new Notification(tr(nLang, "dash.notifyTitle"), { body: tr(nLang, "dash.notifyBody").replace("{count}", String(diff)) });
           }
         }
       } catch { /* polling failure is silent; the manual refresh still works */ }
@@ -345,20 +347,48 @@ export default function DashboardPage() {
     if (!profile) return;
     setSharingId(message.id); setError(""); setNotice("");
     try {
-      const result = await shareStoryCard({
+      const rendered = await renderStoryCardBlob({
         username: profile.username,
         message: message.message,
         reply: message.reply,
         theme: profile.theme,
         style: cardStyle,
       });
-      setNotice(result === "shared"
-        ? "Story dibagikan. Pilih Instagram di menu share."
-        : "Gambar Story diunduh (1080×1920). Upload ke Instagram Story kamu.");
+      const url = URL.createObjectURL(rendered.blob);
+      setStoryPreview((prev) => { if (prev) URL.revokeObjectURL(prev.url); return { url, blob: rendered.blob, filename: rendered.filename }; });
     } catch {
       setError("Gambar Story gagal dibuat di browser ini.");
     } finally { setSharingId(null); }
   }
+
+  function closeStoryPreview() {
+    setStoryPreview((prev) => { if (prev) URL.revokeObjectURL(prev.url); return null; });
+  }
+
+  async function confirmStoryShare() {
+    if (!storyPreview) return;
+    const file = new File([storyPreview.blob], storyPreview.filename, { type: "image/png" });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "My NGL reply" });
+        setNotice(t("dash.storyShared"));
+      } else {
+        downloadBlob(storyPreview.blob, storyPreview.filename);
+        setNotice(t("dash.storyDownloaded"));
+      }
+    } catch {
+      // The share sheet was dismissed: keep the preview open.
+      return;
+    }
+    closeStoryPreview();
+  }
+
+  useEffect(() => {
+    if (!storyPreview) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeStoryPreview(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [storyPreview]);
 
   async function shareLink() {
     if (!profile) return;
@@ -371,9 +401,7 @@ export default function DashboardPage() {
         theme: profile.theme,
         origin: window.location.origin,
       });
-      setNotice(result === "shared"
-        ? "Kartu link dibagikan. Pilih Instagram di menu share."
-        : "Kartu link diunduh (1080×1920). Upload ke Instagram Story kamu.");
+      setNotice(result === "shared" ? t("dash.cardShared") : t("dash.cardDownloaded"));
     } catch {
       setError("Kartu link gagal dibuat di browser ini.");
     } finally { setSharingLink(false); }
@@ -413,13 +441,15 @@ export default function DashboardPage() {
     return true;
   });
   const maxDayCount = Math.max(1, ...stats.byDay.map((d) => d.count));
+  const chartSummary = stats.byDay.map((d) => `${new Date(`${d.date}T00:00:00Z`).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { weekday: "short" })}: ${d.count}`).join(", ");
 
-  return <main className="dashboard-page">
+  return <main className="dashboard-page" id="main" tabIndex={-1}>
+    <a className="skip-link" href="#main">{t("a11y.skip")}</a>
     <header className="dashboard-nav"><Link href="/" className="back-link"><ArrowLeft size={17}/><span>ngl.</span></Link><div className="nav-actions"><span className="private-tag"><Inbox size={13}/> private inbox</span><button className="icon-mini" onClick={() => setThemeMode(toggleThemeMode())} aria-label="Toggle theme">{themeMode === "light" ? <Moon size={15}/> : <Sun size={15}/>}</button><button className="lang-toggle" onClick={() => setLang(lang === "id" ? "en" : "id")}>{lang === "id" ? "EN" : "ID"}</button></div></header>
     <section className="dashboard-shell">
       <div className="dashboard-heading"><span className="eyebrow">YOUR SPACE, YOUR RULES</span><h1>{t("dash.titleA")}<br/><span className="gradient-text">{t("dash.titleB")}</span></h1><p>{t("dash.sub")}</p></div>
       {error && <div className="dashboard-alert error-alert" role="alert">{error}</div>}
-      {notice && <div className="dashboard-alert success-alert" role="status"><Check size={15}/>{notice}</div>}
+      {notice && <div className="dashboard-alert success-alert" role="status"><Check size={15}/>{notice}<button type="button" className="notice-dismiss" onClick={()=>setNotice("")} aria-label={t("dash.dismiss")}>×</button></div>}
       {loading ? <div className="dashboard-panel loading-panel"><RefreshCw className="spin-icon" size={20}/> {t("dash.loading")}</div> :
       !profile && !isAuthenticated ? <section className="dashboard-panel">
         <div className="panel-heading"><div className="dashboard-icon"><UserRound size={20}/></div><div><h2>{mode==="signup" ? t("dash.make") : t("dash.welcome")}</h2><p>{t("dash.authDesc")}</p></div></div>
@@ -465,7 +495,7 @@ export default function DashboardPage() {
           <div className="stat-card"><strong>{stats.unread}</strong><span>{t("dash.statUnread")}</span></div>
         </section>
 
-        {stats.byDay.length > 0 && <section className="dashboard-panel week-chart"><h3>{t("dash.weekTitle")}</h3><div className="chart-bars">{stats.byDay.map((d) => <div className="chart-bar-col" key={d.date}><div className="chart-bar" style={{ height: `${Math.max(4, Math.round((d.count / maxDayCount) * 72))}px` }} title={`${d.date}: ${d.count}`}/><span>{new Date(`${d.date}T00:00:00Z`).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { weekday: "short" })}</span><strong>{d.count}</strong></div>)}</div></section>}
+        {stats.byDay.length > 0 && <section className="dashboard-panel week-chart"><h3>{t("dash.weekTitle")}</h3><div className="chart-bars" role="img" aria-label={`${t("dash.weekTitle")}: ${chartSummary}`}>{stats.byDay.map((d) => <div className="chart-bar-col" key={d.date} aria-hidden="true"><div className="chart-bar" style={{ height: `${Math.max(4, Math.round((d.count / maxDayCount) * 72))}px` }} title={`${d.date}: ${d.count}`}/><span>{new Date(`${d.date}T00:00:00Z`).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { weekday: "short" })}</span><strong>{d.count}</strong></div>)}</div></section>}
 
         <section className="dashboard-panel profile-edit-panel">
           <div className="panel-heading"><div className="dashboard-icon"><Palette size={20}/></div><div><h2>{t("dash.customise")}</h2><p>{t("dash.customiseDesc")}</p></div></div>
@@ -564,5 +594,16 @@ export default function DashboardPage() {
       </>}
     </section>
     <footer className="message-footer">{t("dash.privacy")}</footer>
+    {storyPreview && <div className="story-modal" role="dialog" aria-modal="true" aria-label={t("dash.storyPreview")} onClick={(e)=>{ if (e.target === e.currentTarget) closeStoryPreview(); }}>
+      <div className="story-modal-card">
+        <h2>{t("dash.storyPreview")}</h2>
+        <p>{t("dash.storyPreviewDesc")}</p>
+        <img src={storyPreview.url} alt={t("dash.storyPreview")} />
+        <div className="story-modal-actions">
+          <button className="primary-button" onClick={()=>void confirmStoryShare()}><Share2 size={16}/> {t("dash.shareStory")}</button>
+          <button className="secondary-button" onClick={closeStoryPreview}>{t("dash.close")}</button>
+        </div>
+      </div>
+    </div>}
   </main>;
 }

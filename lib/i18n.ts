@@ -11,6 +11,7 @@ type Dict = Record<string, string>;
 const en: Dict = {
   "nav.how": "How it works",
   "nav.discover": "Discover",
+  "a11y.skip": "Skip to content",
   "hero.eyebrow": "YOUR INBOX, UNFILTERED",
   "hero.titleA": "Say it with",
   "hero.titleB": "no name.",
@@ -136,11 +137,23 @@ const en: Dict = {
   "dash.weekTitle": "Messages this week",
   "dash.shareVia": "Share your link",
   "dash.privacy": "Be kind. Stay curious.",
+  "dash.storyPreview": "Story preview",
+  "dash.storyPreviewDesc": "This is how your card will look. Share it or download it for your story.",
+  "dash.download": "Download",
+  "dash.close": "Close",
+  "dash.dismiss": "Dismiss",
+  "dash.storyShared": "Story shared. Pick Instagram in the share menu.",
+  "dash.storyDownloaded": "Story image downloaded (1080×1920). Upload it to your Instagram Story.",
+  "dash.cardShared": "Link card shared. Pick Instagram in the share menu.",
+  "dash.cardDownloaded": "Link card downloaded (1080×1920). Upload it to your Instagram Story.",
+  "dash.notifyTitle": "New anonymous message",
+  "dash.notifyBody": "You have {count} new messages in your inbox.",
 };
 
 const id: Dict = {
   "nav.how": "Cara kerja",
   "nav.discover": "Jelajahi",
+  "a11y.skip": "Lewati ke konten",
   "hero.eyebrow": "INBOX-MU, TANPA FILTER",
   "hero.titleA": "Katakan dengan",
   "hero.titleB": "tanpa nama.",
@@ -266,6 +279,17 @@ const id: Dict = {
   "dash.weekTitle": "Pesan minggu ini",
   "dash.shareVia": "Bagikan linkmu",
   "dash.privacy": "Baiklah. Tetap penasaran.",
+  "dash.storyPreview": "Pratinjau Story",
+  "dash.storyPreviewDesc": "Begini tampilan kartumu. Bagikan atau unduh untuk story kamu.",
+  "dash.download": "Unduh",
+  "dash.close": "Tutup",
+  "dash.dismiss": "Tutup notifikasi",
+  "dash.storyShared": "Story dibagikan. Pilih Instagram di menu share.",
+  "dash.storyDownloaded": "Gambar Story diunduh (1080×1920). Upload ke Instagram Story kamu.",
+  "dash.cardShared": "Kartu link dibagikan. Pilih Instagram di menu share.",
+  "dash.cardDownloaded": "Kartu link diunduh (1080×1920). Upload ke Instagram Story kamu.",
+  "dash.notifyTitle": "Pesan anonim baru",
+  "dash.notifyBody": "Kamu punya {count} pesan baru di inbox.",
 };
 
 export const STRINGS: Record<Lang, Dict> = { en, id };
@@ -286,10 +310,13 @@ export function getInitialLang(): Lang {
 export function useLang(): [Lang, (lang: Lang) => void] {
   const [lang, setLangState] = useState<Lang>("en");
   useEffect(() => {
-    setLangState(getInitialLang());
+    const initial = getInitialLang();
+    setLangState(initial);
+    document.documentElement.lang = initial;
   }, []);
   const setLang = (next: Lang) => {
     setLangState(next);
+    document.documentElement.lang = next;
     try {
       window.localStorage.setItem("ngl-lang", next);
     } catch {

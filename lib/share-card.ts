@@ -174,25 +174,34 @@ function drawCard(input: ShareCardInput): HTMLCanvasElement {
   return canvas;
 }
 
-export async function shareStoryCard(input: ShareCardInput): Promise<"shared" | "downloaded"> {
+export async function renderStoryCardBlob(input: ShareCardInput): Promise<{ blob: Blob; filename: string }> {
   const canvas = drawCard(input);
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, "image/png"),
   );
   if (!blob) throw new Error("The story image could not be created.");
-  const file = new File([blob], `ngl-${input.username}-story.png`, { type: "image/png" });
+  return { blob, filename: `ngl-${input.username}-story.png` };
+}
+
+export function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+export async function shareStoryCard(input: ShareCardInput): Promise<"shared" | "downloaded"> {
+  const { blob, filename } = await renderStoryCardBlob(input);
+  const file = new File([blob], filename, { type: "image/png" });
 
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     await navigator.share({ files: [file], title: "My NGL reply" });
     return "shared";
   }
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = file.name;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  downloadBlob(blob, filename);
   return "downloaded";
 }
