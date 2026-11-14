@@ -134,10 +134,10 @@ export default function SettingsPage() {
       <div className="dashboard-heading"><span className="eyebrow">YOUR PROFILE, YOUR RULES</span><h1>{t("settings.title")}</h1><p>{t("settings.sub")}</p></div>
       {error && <div className="dashboard-alert error-alert" role="alert">{error}</div>}
       {notice && <div className="dashboard-alert success-alert" role="status"><Check size={15}/>{notice}<button type="button" className="notice-dismiss" onClick={()=>setNotice("")} aria-label={t("dash.dismiss")}>×</button></div>}
-      {loading ? <div className="dashboard-panel loading-panel"><RefreshCw className="spin-icon" size={20}/> {t("dash.loading")}</div> :
-      !profile ? <section className="dashboard-panel"><div className="panel-heading"><div className="dashboard-icon"><Palette size={20}/></div><div><h2>{t("settings.title")}</h2><p>{t("settings.noProfile")}</p></div></div><Link className="primary-button full-button" href="/dashboard">{t("settings.goDashboard")}</Link></section> :
+      {loading ? <div className="dashboard-panel loading-panel ngl-panel"><RefreshCw className="spin-icon" size={20}/> {t("dash.loading")}</div> :
+      !profile ? <section className="dashboard-panel ngl-panel"><div className="panel-heading"><div className="dashboard-icon"><Palette size={20}/></div><div><h2>{t("settings.title")}</h2><p>{t("settings.noProfile")}</p></div></div><Link className="primary-button full-button" href="/dashboard">{t("settings.goDashboard")}</Link></section> :
       <>
-        <section className="dashboard-panel profile-edit-panel">
+        <section className="dashboard-panel profile-edit-panel ngl-panel">
           <div className="panel-heading"><div className="dashboard-icon"><Palette size={20}/></div><div><h2>{t("dash.customise")}</h2><p>{t("dash.customiseDesc")}</p></div></div>
           <form onSubmit={saveProfile} className="dashboard-form">
             <label htmlFor="bio">{t("dash.bio")}</label>
@@ -179,7 +179,7 @@ export default function SettingsPage() {
           </form>
         </section>
 
-        <section className="dashboard-panel blocked-panel">
+        <section className="dashboard-panel blocked-panel ngl-panel">
           <h3>{t("dash.blockedTitle")} <span>({blocks.length})</span></h3>
           {blocks.length === 0 ? <p className="privacy-note">{t("dash.noBlocked")}</p> :
             <ul className="blocked-list">{blocks.map((b) => <li key={b.ip_hash}><code>{b.ip_hash.slice(0, 12)}…</code><span>{new Date(b.created_at).toLocaleDateString()}</span><button className="secondary-button" onClick={()=>void unblock(b.ip_hash)}>{t("dash.unblock")}</button></li>)}</ul>}

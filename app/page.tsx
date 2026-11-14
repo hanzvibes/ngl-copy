@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { ArrowUpRight, Check, Copy, Heart, LockKeyhole, MessageCircle, Moon, Sparkles, Sun, Zap } from "lucide-react";
 import { tr, useLang } from "@/lib/i18n";
+import { GAMES } from "@/lib/questions";
 import { getThemeMode, toggleThemeMode, type ThemeMode } from "@/lib/theme";
 
 export default function Home() {
   const [username, setUsername] = useState("");
   const [copied, setCopied] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [openGame, setOpenGame] = useState<string | null>(null);
   const [lang, setLang] = useLang();
   const [themeMode, setThemeMode] = useState<ThemeMode>("dark");
   useEffect(() => { setThemeMode(getThemeMode()); }, []);
@@ -49,6 +51,20 @@ export default function Home() {
         </div>
         <div className="floating-chip chip-bottom" aria-hidden="true"><Zap size={15} fill="currentColor"/> zero awkwardness</div>
         <div className="sparkle sparkle-a" aria-hidden="true">✳</div><div className="sparkle sparkle-b" aria-hidden="true">✦</div>
+      </div>
+    </section>
+    <section className="games shell">
+      <div className="section-heading"><span className="eyebrow">{t("games.eyebrow")}</span><h2>{t("games.title")}</h2></div>
+      <p className="games-sub">{t("games.sub")}</p>
+      <div className="games-grid">
+        {GAMES.map((g) => (
+          <button key={g.id} type="button" className={`game-card${openGame === g.id ? " open" : ""}`} onClick={() => setOpenGame(openGame === g.id ? null : g.id)} aria-expanded={openGame === g.id}>
+            <div className="game-gradient" style={{ background: g.gradient }} aria-hidden="true"/>
+            <h3>{g.title}</h3>
+            <p>{g.examples[0]}</p>
+            <ul>{g.examples.map((q) => <li key={q}>{q}</li>)}</ul>
+          </button>
+        ))}
       </div>
     </section>
     <section id="how" className="how shell">
