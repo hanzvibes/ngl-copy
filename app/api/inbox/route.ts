@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
-const MESSAGE_COLUMNS = "id, message, created_at, reply, liked, is_read, is_public";
+const MESSAGE_COLUMNS = "id, message, created_at, reply, liked, is_read, is_public, archived, pinned, reaction";
 
 type InboxRow = {
   id: number;
@@ -13,6 +13,9 @@ type InboxRow = {
   liked: boolean;
   is_read: boolean;
   is_public: boolean;
+  archived: boolean;
+  pinned: boolean;
+  reaction: string | null;
 };
 
 function clients() {
@@ -37,11 +40,26 @@ async function authenticate(request: Request) {
 function statsFor(rows: Pick<InboxRow, "created_at" | "liked" | "is_read">[]) {
   const todayStart = new Date();
   todayStart.setUTCHours(0, 0, 0, 0);
+  const byDay: { date: string; count: number }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const day = new Date(todayStart);
+    day.setUTCDate(day.getUTCDate() - i);
+    const next = new Date(day);
+    next.setUTCDate(next.getUTCDate() + 1);
+    byDay.push({
+      date: day.toISOString().slice(0, 10),
+      count: rows.filter((row) => {
+        const created = new Date(row.created_at);
+        return created >= day && created < next;
+      }).length,
+    });
+  }
   return {
     total: rows.length,
     today: rows.filter((row) => new Date(row.created_at) >= todayStart).length,
     liked: rows.filter((row) => row.liked).length,
     unread: rows.filter((row) => !row.is_read).length,
+    byDay,
   };
 }
 
@@ -53,6 +71,7 @@ export async function GET(request: Request) {
   const { data, error } = await c.admin.from("ngl_messages")
     .select(MESSAGE_COLUMNS)
     .eq("owner_user_id", user.id)
+    .order("pinned", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(100);
   if (!error) {
@@ -75,13 +94,17 @@ export async function GET(request: Request) {
     liked: false,
     is_read: false,
     is_public: false,
+    archived: false,
+    pinned: false,
+    reaction: null,
   }));
   return NextResponse.json({ messages: rows, stats: statsFor(rows) });
 }
 
 // Update one owned message: save/clear a reply (max 500 chars), toggle like,
-// mark read/unread, or publish/unpublish it to the public answers feed.
-// At least one of the four must be present.
+// mark read/unread, publish/unpublish it, archive/unarchive, pin/unpin, or
+// set/clear an emoji reaction. At least one must be present.
+const REACTIONS = ["❤️", "😂", "😮", "🔥", "😢", "👍"];
 export async function PATCH(request: Request) {
   const { c, user } = await authenticate(request);
   if (!c) return NextResponse.json({ error: "Supabase belum dikonfigurasi." }, { status: 503 });
@@ -102,7 +125,7 @@ export async function PATCH(request: Request) {
     const id = typeof body.id === "string" || typeof body.id === "number" ? String(body.id) : "";
     if (!/^\d{1,19}$/.test(id)) return NextResponse.json({ error: "ID pesan tidak valid." }, { status: 400 });
 
-    const updates: { reply?: string | null; liked?: boolean; is_read?: boolean; is_public?: boolean } = {};
+    const updates: { reply?: string | null; liked?: boolean; is_read?: boolean; is_public?: boolean; archived?: boolean; pinned?: boolean; reaction?: string | null } = {};
     if (typeof body.reply === "string") {
       const reply = body.reply.trim();
       if (reply.length > 500) return NextResponse.json({ error: "Balasan maksimal 500 karakter." }, { status: 400 });
@@ -111,6 +134,15 @@ export async function PATCH(request: Request) {
     if (typeof body.liked === "boolean") updates.liked = body.liked;
     if (typeof body.is_read === "boolean") updates.is_read = body.is_read;
     if (typeof body.is_public === "boolean") updates.is_public = body.is_public;
+    if (typeof body.archived === "boolean") updates.archived = body.archived;
+    if (typeof body.pinned === "boolean") updates.pinned = body.pinned;
+    if (typeof body.reaction === "string") {
+      const reaction = body.reaction.trim();
+      if (reaction !== "" && !REACTIONS.includes(reaction)) {
+        return NextResponse.json({ error: "Reaksi tidak dikenal." }, { status: 400 });
+      }
+      updates.reaction = reaction === "" ? null : reaction;
+    }
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "Tidak ada perubahan pesan." }, { status: 400 });
     }
