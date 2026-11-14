@@ -25,11 +25,14 @@ Apply these migrations in order if setting up a fresh environment:
 1. `supabase/migrations/202610300001_messages_and_rate_limit.sql`
 2. `supabase/migrations/202610300002_profiles_and_inbox.sql`
 3. `supabase/migrations/202610300003_new_features.sql`
+4. `supabase/migrations/202610300004_custom_prompt_public_answers.sql`
 
 The third migration adds custom profiles (bio, avatar URL, theme), message
 replies, likes and read state. It is additive: if it has not been applied yet,
 the dashboard and send page keep working with defaults, but saving a reply,
-like, read state or profile customisation will fail until it is applied.
+like, read state or profile customisation will fail until it is applied. The
+fourth migration adds the custom link question and the public-answers flag,
+with the same fallback behaviour.
 
 The second migration adds owner-bound profiles and private inbox access. Public messages are accepted only for a claimed username. Owners can read/delete only their own messages. The API validates Supabase access tokens before performing service-role queries, and the service-role key is server-only.
 
@@ -50,6 +53,13 @@ In Supabase Auth settings, configure the site's allowed redirect URLs and email 
 - **Inbox stats, likes and read state** — totals for all / today / liked /
   unread, filters for All / Unread / Liked, a heart to like a message and a
   toggle to mark it read or unread.
+- **Custom link question** — set your own question (max 140 characters) in
+  the dashboard; it shows on your public link instead of the generic text.
+- **QR link card** — a QR preview lives in the dashboard, and "Download link
+  card" renders a 1080×1920 card with your question and QR code to post to
+  your story.
+- **Public answers feed** — reply to a message, tap Publish, and it appears
+  on your public link for everyone to read. Unpublish any time.
 
 ## Verification
 

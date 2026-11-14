@@ -47,3 +47,22 @@
 .profile-bio{font-size:11px;color:#c9bccd;line-height:1.6;margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
 .profile-avatar-img{object-fit:cover}
 @media(max-width:600px){.stats-grid{grid-template-columns:repeat(2,1fr)}.theme-swatch{width:34px;height:34px}}
+
+/* Batch 2: custom prompt, QR link card, public answers */
+.send-prompt{font:600 clamp(22px,4vw,28px)/1.35 'Space Grotesk',sans-serif;letter-spacing:-.5px;margin:0 0 14px;color:#fff}
+.qr-row{display:flex;align-items:center;gap:16px;margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,.08)}
+.qr-image{width:104px;height:104px;border-radius:12px;background:#fff;padding:6px;flex:0 0 auto}
+.qr-copy{min-width:0}
+.qr-copy strong{font-size:13px}
+.qr-copy p{font-size:11px;line-height:1.6;color:#a59baa;margin:5px 0 12px}
+.public-badge{padding:3px 7px;border-radius:6px;background:rgba(112,220,161,.14);color:#8ee5b5;font-size:8px;font-weight:700;letter-spacing:1px}
+.action-button.active{background:linear-gradient(110deg,#ff6598,#ff9b72);color:#24111a;border-color:transparent}
+.answers-section{position:relative;z-index:1;width:min(480px,calc(100% - 36px));margin:0 auto 40px}
+.answers-heading{text-align:center;margin-bottom:20px}
+.answers-heading h2{font:600 22px 'Space Grotesk',sans-serif;letter-spacing:-.5px;margin:10px 0 0}
+.answers-list{display:flex;flex-direction:column;gap:12px}
+.answer-card{border:1px solid rgba(255,255,255,.09);background:rgba(25,21,32,.86);border-radius:14px;padding:16px 17px}
+.answer-question{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.7;color:#f3edf6;margin:0 0 2px}
+.answer-card .message-reply{margin-top:13px}
+.answer-card time{display:block;margin-top:12px;font-size:9px;color:#8f8498}
+@media(max-width:600px){.qr-row{align-items:flex-start}.qr-image{width:88px;height:88px}}
