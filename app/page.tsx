@@ -1,12 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowUpRight, Check, Copy, Heart, LockKeyhole, MessageCircle, Sparkles, Zap } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowUpRight, Check, Copy, Heart, LockKeyhole, MessageCircle, Moon, Sparkles, Sun, Zap } from "lucide-react";
+import { tr, useLang } from "@/lib/i18n";
+import { getThemeMode, toggleThemeMode, type ThemeMode } from "@/lib/theme";
 
 export default function Home() {
   const [username, setUsername] = useState("");
   const [copied, setCopied] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [lang, setLang] = useLang();
+  const [themeMode, setThemeMode] = useState<ThemeMode>("dark");
+  useEffect(() => { setThemeMode(getThemeMode()); }, []);
+  const t = (key: string) => tr(lang, key);
   const link = typeof window !== "undefined" ? window.location.origin + "/" + (username.trim().replace(/^@/, "") || "yourname") : "https://ngl-copy.vercel.app/yourname";
 
   async function copyLink() {
@@ -16,19 +22,19 @@ export default function Home() {
   }
 
   return <main className="landing">
-    <nav className="nav shell"><a className="wordmark" href="/"><span className="brand-mark">n</span> ngl<span className="dot">.</span></a><a className="nav-link" href="#how">How it works <ArrowUpRight size={15}/></a></nav>
+    <nav className="nav shell"><a className="wordmark" href="/"><span className="brand-mark">n</span> ngl<span className="dot">.</span></a><div className="nav-actions"><a className="nav-link" href="/discover">{t("nav.discover")}</a><a className="nav-link" href="#how">{t("nav.how")} <ArrowUpRight size={15}/></a><button className="icon-mini" onClick={() => setThemeMode(toggleThemeMode())} aria-label="Toggle theme">{themeMode === "light" ? <Moon size={15}/> : <Sun size={15}/>}</button><button className="lang-toggle" onClick={() => setLang(lang === "id" ? "en" : "id")}>{lang === "id" ? "EN" : "ID"}</button></div></nav>
     <section className="hero shell">
       <div className="hero-copy">
-        <div className="eyebrow"><span className="pulse-dot"/> YOUR INBOX, UNFILTERED</div>
-        <h1>Say it with<br/><span className="gradient-text">no name.</span></h1>
-        <p className="hero-description">The place to get the honest messages your friends are too shy to send. Make your link. Share it anywhere. Let the truth slide in.</p>
+        <div className="eyebrow"><span className="pulse-dot"/> {t("hero.eyebrow")}</div>
+        <h1>{t("hero.titleA")}<br/><span className="gradient-text">{t("hero.titleB")}</span></h1>
+        <p className="hero-description">{t("hero.desc")}</p>
         <div className="create-card">
-          <label htmlFor="username">Claim your link</label>
-          <div className="username-input"><span className="at">@</span><input id="username" value={username} onChange={e=>setUsername(e.target.value.replace(/[^a-zA-Z0-9_.]/g,"").slice(0,24))} placeholder="yourname" onKeyDown={e=>{if(e.key==="Enter")copyLink()}}/><button className="primary-button" onClick={copyLink}>{copied ? <><Check size={17}/> Copied</> : <>Create my link <ArrowUpRight size={17}/></>}</button></div>
-          <div className="card-foot"><LockKeyhole size={13}/> Account required to claim your link <span className="secure-dot"/></div>
+          <label htmlFor="username">{t("hero.claim")}</label>
+          <div className="username-input"><span className="at">@</span><input id="username" value={username} onChange={e=>setUsername(e.target.value.replace(/[^a-zA-Z0-9_.]/g,"").slice(0,24))} placeholder={t("hero.placeholder")} onKeyDown={e=>{if(e.key==="Enter")copyLink()}}/><button className="primary-button" onClick={copyLink}>{copied ? <><Check size={17}/> {t("dash.copied")}</> : <>{t("hero.create")} <ArrowUpRight size={17}/></>}</button></div>
+          <div className="card-foot"><LockKeyhole size={13}/> {t("hero.account")} <span className="secure-dot"/></div>
           {showPreview && <div className="preview-link"><span>{link}</span><button onClick={()=>{navigator.clipboard?.writeText(link);setCopied(true);setShowPreview(false)}} aria-label="Copy link"><Copy size={15}/></button></div>}
         </div>
-        <div className="social-proof"><div className="avatar-stack"><span>J</span><span>M</span><span>A</span><span>K</span></div><p><strong>Curiosity looks good on you.</strong><br/>Your friends have things to say.</p></div>
+        <div className="social-proof"><div className="avatar-stack"><span>J</span><span>M</span><span>A</span><span>K</span></div><p><strong>{t("hero.proof")}</strong><br/>{t("hero.proof2")}</p></div>
       </div>
       <div className="hero-visual" aria-label="Anonymous message preview">
         <div className="orbit orbit-one"/><div className="orbit orbit-two"/>
@@ -46,13 +52,13 @@ export default function Home() {
       </div>
     </section>
     <section id="how" className="how shell">
-      <div className="section-heading"><span className="eyebrow">THREE STEPS. ZERO PRESSURE.</span><h2>Let the messages<br/>do the talking.</h2></div>
+      <div className="section-heading"><span className="eyebrow">{t("how.eyebrow")}</span><h2>{t("how.titleA")}<br/>{t("how.titleB")}</h2></div>
       <div className="steps">
-        <article className="step-card"><div className="step-number">01</div><div className="step-icon pink"><MessageCircle size={21}/></div><h3>Make your link</h3><p>Pick a username and get a link that's all yours.</p><span className="step-line"/></article>
-        <article className="step-card"><div className="step-number">02</div><div className="step-icon orange"><ArrowUpRight size={21}/></div><h3>Put it out there</h3><p>Drop it in your story, bio, or group chat.</p><span className="step-line"/></article>
-        <article className="step-card"><div className="step-number">03</div><div className="step-icon purple"><Heart size={21}/></div><h3>Read the truth</h3><p>Get anonymous messages. No names, no pressure.</p><span className="step-line"/></article>
+        <article className="step-card"><div className="step-number">01</div><div className="step-icon pink"><MessageCircle size={21}/></div><h3>{t("step1.title")}</h3><p>{t("step1.desc")}</p><span className="step-line"/></article>
+        <article className="step-card"><div className="step-number">02</div><div className="step-icon orange"><ArrowUpRight size={21}/></div><h3>{t("step2.title")}</h3><p>{t("step2.desc")}</p><span className="step-line"/></article>
+        <article className="step-card"><div className="step-number">03</div><div className="step-icon purple"><Heart size={21}/></div><h3>{t("step3.title")}</h3><p>{t("step3.desc")}</p><span className="step-line"/></article>
       </div>
     </section>
-    <footer className="footer shell"><a className="wordmark" href="/"><span className="brand-mark">n</span> ngl<span className="dot">.</span></a><span>Built for the things left unsaid.</span><span className="footer-right">Be kind. Stay curious.</span></footer>
+    <footer className="footer shell"><a className="wordmark" href="/"><span className="brand-mark">n</span> ngl<span className="dot">.</span></a><span>{t("footer.tag")}</span><span className="footer-right">{t("footer.right")}</span></footer>
   </main>;
 }

@@ -1,27 +1,47 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Copy, Eye, EyeOff, Globe, Heart, Inbox, LogOut, Mail, Palette, QrCode, RefreshCw, Reply, Share2, Trash2, UserRound } from "lucide-react";
+import { Archive, ArrowLeft, AtSign, Ban, Bell, Check, Copy, Download, Eye, EyeOff, Globe, Heart, Inbox, LogOut, Mail, MessageCircle, Moon, Palette, Pin, QrCode, RefreshCw, Reply, Search, Share2, Sun, Trash2, Twitter, UserRound } from "lucide-react";
 import QRCode from "qrcode";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { shareLinkCard } from "@/lib/link-card";
-import { shareStoryCard } from "@/lib/share-card";
+import { shareStoryCard, type CardStyle } from "@/lib/share-card";
 import { THEMES, THEME_IDS, themeOrDefault, type ThemeId } from "@/lib/themes";
+import { tr, useLang } from "@/lib/i18n";
+import { getThemeMode, toggleThemeMode, type ThemeMode } from "@/lib/theme";
 
-type Message = { id: number; message: string; created_at: string; reply: string | null; liked: boolean; is_read: boolean; is_public: boolean };
-type Profile = { username: string; created_at?: string; bio: string; avatar_url: string; theme: ThemeId; prompt: string };
-type Stats = { total: number; today: number; liked: number; unread: number };
-type Filter = "all" | "unread" | "liked";
+type Message = { id: number; message: string; created_at: string; reply: string | null; liked: boolean; is_read: boolean; is_public: boolean; archived: boolean; pinned: boolean; reaction: string | null };
+type Profile = { username: string; created_at?: string; bio: string; avatar_url: string; theme: ThemeId; prompt: string; paused: boolean; prompt_auto: boolean; discoverable: boolean; bg_url: string; instagram: string; tiktok: string; x_handle: string };
+type Stats = { total: number; today: number; liked: number; unread: number; byDay: { date: string; count: number }[] };
+type Filter = "all" | "unread" | "liked" | "archived";
+type Block = { ip_hash: string; created_at: string };
+
+const REACTIONS = ["❤️", "😂", "😮", "🔥", "😢", "👍"];
 
 function computeStats(list: Message[]): Stats {
   const todayStart = new Date();
   todayStart.setUTCHours(0, 0, 0, 0);
+  const byDay: { date: string; count: number }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const day = new Date(todayStart);
+    day.setUTCDate(day.getUTCDate() - i);
+    const next = new Date(day);
+    next.setUTCDate(next.getUTCDate() + 1);
+    byDay.push({
+      date: day.toISOString().slice(0, 10),
+      count: list.filter((m) => {
+        const created = new Date(m.created_at);
+        return created >= day && created < next;
+      }).length,
+    });
+  }
   return {
     total: list.length,
     today: list.filter((m) => new Date(m.created_at) >= todayStart).length,
     liked: list.filter((m) => m.liked).length,
     unread: list.filter((m) => !m.is_read).length,
+    byDay,
   };
 }
 
@@ -32,7 +52,7 @@ export default function DashboardPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [stats, setStats] = useState<Stats>({ total: 0, today: 0, liked: 0, unread: 0 });
+  const [stats, setStats] = useState<Stats>({ total: 0, today: 0, liked: 0, unread: 0, byDay: [] });
   const [filter, setFilter] = useState<Filter>("all");
   const [mode, setMode] = useState<"login" | "signup">("signup");
   const [busy, setBusy] = useState(false);
@@ -44,11 +64,28 @@ export default function DashboardPage() {
   const [avatarDraft, setAvatarDraft] = useState("");
   const [themeDraft, setThemeDraft] = useState<ThemeId>("pink");
   const [promptDraft, setPromptDraft] = useState("");
+  const [bgDraft, setBgDraft] = useState("");
+  const [instagramDraft, setInstagramDraft] = useState("");
+  const [tiktokDraft, setTiktokDraft] = useState("");
+  const [xDraft, setXDraft] = useState("");
+  const [pausedDraft, setPausedDraft] = useState(false);
+  const [promptAutoDraft, setPromptAutoDraft] = useState(false);
+  const [discoverableDraft, setDiscoverableDraft] = useState(false);
+  const [newUsernameDraft, setNewUsernameDraft] = useState("");
   const [qrUrl, setQrUrl] = useState("");
   const [sharingLink, setSharingLink] = useState(false);
   const [replyingId, setReplyingId] = useState<number | null>(null);
   const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
   const [sharingId, setSharingId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [cardStyle, setCardStyle] = useState<CardStyle>("classic");
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [notificationsOn, setNotificationsOn] = useState(false);
+  const [lang, setLang] = useLang();
+  const [themeMode, setThemeMode] = useState<ThemeMode>("dark");
+  useEffect(() => { setThemeMode(getThemeMode()); }, []);
+  const t = (key: string) => tr(lang, key);
+  const prevTotalRef = useRef(0);
 
   async function request(path: string, init: RequestInit = {}) {
     const supabase = getSupabaseBrowserClient();
@@ -74,10 +111,22 @@ export default function DashboardPage() {
         setAvatarDraft(nextProfile.avatar_url || "");
         setThemeDraft(themeOrDefault(nextProfile.theme));
         setPromptDraft(nextProfile.prompt || "");
+        setBgDraft(nextProfile.bg_url || "");
+        setInstagramDraft(nextProfile.instagram || "");
+        setTiktokDraft(nextProfile.tiktok || "");
+        setXDraft(nextProfile.x_handle || "");
+        setPausedDraft(Boolean(nextProfile.paused));
+        setPromptAutoDraft(Boolean(nextProfile.prompt_auto));
+        setDiscoverableDraft(Boolean(nextProfile.discoverable));
+        setNewUsernameDraft(nextProfile.username);
       }
       const nextMessages = (inboxData.messages || []) as Message[];
       setMessages(nextMessages);
       setStats(inboxData.stats || computeStats(nextMessages));
+      try {
+        const blocksData = await request("/api/blocks");
+        setBlocks(blocksData.blocks || []);
+      } catch { setBlocks([]); }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Data gagal dimuat.");
     } finally { setLoading(false); }
@@ -93,6 +142,29 @@ export default function DashboardPage() {
       .catch(() => {});
     return () => { active = false; };
   }, [profile]);
+
+  // New-message notifications while the dashboard is open (browser
+  // Notification API, polled once a minute). No email provider needed.
+  useEffect(() => {
+    if (!notificationsOn || !profile) return;
+    prevTotalRef.current = messages.length;
+    const timer = setInterval(async () => {
+      try {
+        const inbox = await request("/api/inbox");
+        const next = (inbox.messages || []) as Message[];
+        if (next.length > prevTotalRef.current) {
+          const diff = next.length - prevTotalRef.current;
+          prevTotalRef.current = next.length;
+          setMessages(next);
+          setStats(inbox.stats || computeStats(next));
+          if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+            new Notification("Pesan anonim baru", { body: `Kamu punya ${diff} pesan baru di inbox.` });
+          }
+        }
+      } catch { /* polling failure is silent; the manual refresh still works */ }
+    }, 60000);
+    return () => clearInterval(timer);
+  }, [notificationsOn, profile]);
 
   useEffect(() => {
     let active = true;
@@ -110,7 +182,7 @@ export default function DashboardPage() {
         if (!active) return;
         setIsAuthenticated(Boolean(session));
         if (session) { setLoading(true); void loadPrivateData(); }
-        else { setProfile(null); setMessages([]); setStats({ total: 0, today: 0, liked: 0, unread: 0 }); setLoading(false); }
+        else { setProfile(null); setMessages([]); setStats({ total: 0, today: 0, liked: 0, unread: 0, byDay: [] }); setBlocks([]); setLoading(false); }
       });
       return () => { active = false; subscription.unsubscribe(); };
     } catch (e) {
@@ -145,6 +217,9 @@ export default function DashboardPage() {
       const data = await request("/api/profile", { method: "POST", body: JSON.stringify({ username }) });
       setProfile(data.profile); setUsername(data.profile.username);
       setBioDraft(data.profile.bio || ""); setAvatarDraft(data.profile.avatar_url || ""); setThemeDraft(themeOrDefault(data.profile.theme)); setPromptDraft(data.profile.prompt || "");
+      setBgDraft(data.profile.bg_url || ""); setInstagramDraft(data.profile.instagram || ""); setTiktokDraft(data.profile.tiktok || ""); setXDraft(data.profile.x_handle || "");
+      setPausedDraft(Boolean(data.profile.paused)); setPromptAutoDraft(Boolean(data.profile.prompt_auto)); setDiscoverableDraft(Boolean(data.profile.discoverable));
+      setNewUsernameDraft(data.profile.username);
       setNotice("Link kamu sudah aktif.");
       const inbox = await request("/api/inbox");
       const nextMessages = (inbox.messages || []) as Message[];
@@ -159,7 +234,7 @@ export default function DashboardPage() {
     try {
       const data = await request("/api/profile", {
         method: "PATCH",
-        body: JSON.stringify({ bio: bioDraft, avatar_url: avatarDraft, theme: themeDraft, prompt: promptDraft }),
+        body: JSON.stringify({ bio: bioDraft, avatar_url: avatarDraft, theme: themeDraft, prompt: promptDraft, bg_url: bgDraft, instagram: instagramDraft, tiktok: tiktokDraft, x_handle: xDraft, paused: pausedDraft, prompt_auto: promptAutoDraft, discoverable: discoverableDraft }),
       });
       setProfile(data.profile);
       setNotice("Profil diperbarui.");
@@ -167,7 +242,17 @@ export default function DashboardPage() {
     finally { setBusy(false); }
   }
 
-  async function updateMessage(id: number, patch: { reply?: string; liked?: boolean; is_read?: boolean; is_public?: boolean }) {
+  async function changeUsername(e: FormEvent) {
+    e.preventDefault(); setBusy(true); setError(""); setNotice("");
+    try {
+      const data = await request("/api/profile", { method: "PATCH", body: JSON.stringify({ username: newUsernameDraft }) });
+      setProfile(data.profile); setUsername(data.profile.username); setNewUsernameDraft(data.profile.username);
+      setNotice(`Username diganti jadi @${data.profile.username}. Link lama sudah tidak aktif.`);
+    } catch (e) { setError(e instanceof Error ? e.message : "Username gagal diganti."); }
+    finally { setBusy(false); }
+  }
+
+  async function updateMessage(id: number, patch: { reply?: string; liked?: boolean; is_read?: boolean; is_public?: boolean; archived?: boolean; pinned?: boolean; reaction?: string }) {
     setError(""); setNotice("");
     try {
       const data = await request("/api/inbox", { method: "PATCH", body: JSON.stringify({ id, ...patch }) });
@@ -193,6 +278,69 @@ export default function DashboardPage() {
     } catch (e) { setError(e instanceof Error ? e.message : "Pesan gagal dihapus."); }
   }
 
+  async function blockSender(messageId: number) {
+    setError(""); setNotice("");
+    try {
+      await request("/api/blocks", { method: "POST", body: JSON.stringify({ messageId }) });
+      const data = await request("/api/blocks");
+      setBlocks(data.blocks || []);
+      setNotice("Pengirim diblokir. Pesan darinya tidak akan masuk lagi.");
+    } catch (e) { setError(e instanceof Error ? e.message : "Gagal memblokir pengirim."); }
+  }
+
+  async function unblock(ipHash: string) {
+    setError(""); setNotice("");
+    try {
+      await request(`/api/blocks?ip_hash=${encodeURIComponent(ipHash)}`, { method: "DELETE" });
+      setBlocks(blocks.filter((b) => b.ip_hash !== ipHash));
+      setNotice("Blokir dibuka.");
+    } catch (e) { setError(e instanceof Error ? e.message : "Gagal membuka blokir."); }
+  }
+
+  function exportInbox() {
+    const payload = {
+      username: profile?.username,
+      exported_at: new Date().toISOString(),
+      messages: messages.map((m) => ({ id: m.id, message: m.message, reply: m.reply, liked: m.liked, is_read: m.is_read, is_public: m.is_public, archived: m.archived, pinned: m.pinned, reaction: m.reaction, created_at: m.created_at })),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ngl-inbox-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    setNotice("Inbox diekspor sebagai file JSON.");
+  }
+
+  function shareVia(platform: "whatsapp" | "x" | "threads") {
+    if (!profile) return;
+    const link = `${window.location.origin}/${profile.username}`;
+    const text = `Kirim aku pesan anonim di ${link}`;
+    const url = platform === "whatsapp"
+      ? `https://wa.me/?text=${encodeURIComponent(text)}`
+      : platform === "x"
+        ? `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`
+        : `https://www.threads.net/intent/post?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank", "noopener");
+  }
+
+  async function enableNotifications() {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setError("Browser ini tidak mendukung notifikasi.");
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+      setNotificationsOn(true);
+      setNotice("Notifikasi diaktifkan. Kamu akan diberi tahu saat ada pesan baru selagi dashboard terbuka.");
+    } else {
+      setError("Izin notifikasi ditolak. Aktifkan dari pengaturan browser.");
+    }
+  }
+
   async function shareMessage(message: Message) {
     if (!profile) return;
     setSharingId(message.id); setError(""); setNotice("");
@@ -202,6 +350,7 @@ export default function DashboardPage() {
         message: message.message,
         reply: message.reply,
         theme: profile.theme,
+        style: cardStyle,
       });
       setNotice(result === "shared"
         ? "Story dibagikan. Pilih Instagram di menu share."
@@ -237,40 +386,59 @@ export default function DashboardPage() {
     catch { setError("Gagal menyalin link. Salin manual: " + link); }
   }
 
+  async function copyEmbedCode() {
+    if (!profile) return;
+    const src = `${window.location.origin}/embed/${profile.username}`;
+    const code = `<iframe src="${src}" width="320" height="200" style="border:0;border-radius:16px" loading="lazy" title="Ask @${profile.username} anonymously"></iframe>`;
+    try {
+      await navigator.clipboard.writeText(code);
+      setNotice("Kode embed disalin. Tempel di website atau blog kamu.");
+    } catch { setError("Gagal menyalin kode embed."); }
+  }
+
   async function signOut() {
     try { await getSupabaseBrowserClient().auth.signOut(); setNotice("Kamu sudah logout."); }
     catch { setError("Logout gagal. Coba lagi."); }
   }
 
-  const filteredMessages = messages.filter((m) =>
-    filter === "unread" ? !m.is_read : filter === "liked" ? m.liked : true,
-  );
+  const archivedCount = messages.filter((m) => m.archived).length;
+  const visibleMessages = messages.filter((m) => filter === "archived" ? m.archived : !m.archived);
+  const filteredMessages = visibleMessages.filter((m) => {
+    if (filter === "unread" && m.is_read) return false;
+    if (filter === "liked" && !m.liked) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      if (!m.message.toLowerCase().includes(q) && !(m.reply || "").toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+  const maxDayCount = Math.max(1, ...stats.byDay.map((d) => d.count));
 
   return <main className="dashboard-page">
-    <header className="dashboard-nav"><Link href="/" className="back-link"><ArrowLeft size={17}/><span>ngl.</span></Link><span className="private-tag"><Inbox size={13}/> private inbox</span></header>
+    <header className="dashboard-nav"><Link href="/" className="back-link"><ArrowLeft size={17}/><span>ngl.</span></Link><div className="nav-actions"><span className="private-tag"><Inbox size={13}/> private inbox</span><button className="icon-mini" onClick={() => setThemeMode(toggleThemeMode())} aria-label="Toggle theme">{themeMode === "light" ? <Moon size={15}/> : <Sun size={15}/>}</button><button className="lang-toggle" onClick={() => setLang(lang === "id" ? "en" : "id")}>{lang === "id" ? "EN" : "ID"}</button></div></header>
     <section className="dashboard-shell">
-      <div className="dashboard-heading"><span className="eyebrow">YOUR SPACE, YOUR RULES</span><h1>Your messages.<br/><span className="gradient-text">Your inbox.</span></h1><p>Claim your personal link and manage anonymous messages in one private place.</p></div>
+      <div className="dashboard-heading"><span className="eyebrow">YOUR SPACE, YOUR RULES</span><h1>{t("dash.titleA")}<br/><span className="gradient-text">{t("dash.titleB")}</span></h1><p>{t("dash.sub")}</p></div>
       {error && <div className="dashboard-alert error-alert" role="alert">{error}</div>}
       {notice && <div className="dashboard-alert success-alert" role="status"><Check size={15}/>{notice}</div>}
-      {loading ? <div className="dashboard-panel loading-panel"><RefreshCw className="spin-icon" size={20}/> Loading your space…</div> :
+      {loading ? <div className="dashboard-panel loading-panel"><RefreshCw className="spin-icon" size={20}/> {t("dash.loading")}</div> :
       !profile && !isAuthenticated ? <section className="dashboard-panel">
-        <div className="panel-heading"><div className="dashboard-icon"><UserRound size={20}/></div><div><h2>{mode==="signup" ? "Make it yours" : "Welcome back"}</h2><p>Create an account or sign in to reserve a unique username and manage your private inbox.</p></div></div>
+        <div className="panel-heading"><div className="dashboard-icon"><UserRound size={20}/></div><div><h2>{mode==="signup" ? t("dash.make") : t("dash.welcome")}</h2><p>{t("dash.authDesc")}</p></div></div>
         <form onSubmit={authenticate} className="dashboard-form">
-          <label htmlFor="email">Email address</label><input id="email" type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" required/>
-          <label htmlFor="password">Password</label><input id="password" type="password" autoComplete={mode==="signup" ? "new-password" : "current-password"} minLength={8} value={password} onChange={e=>setPassword(e.target.value)} placeholder="At least 8 characters" required/>
-          <button className="primary-button full-button" disabled={busy}>{busy ? "Please wait…" : mode==="signup" ? "Create account" : "Sign in"}</button>
+          <label htmlFor="email">{t("dash.email")}</label><input id="email" type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" required/>
+          <label htmlFor="password">{t("dash.password")}</label><input id="password" type="password" autoComplete={mode==="signup" ? "new-password" : "current-password"} minLength={8} value={password} onChange={e=>setPassword(e.target.value)} placeholder="At least 8 characters" required/>
+          <button className="primary-button full-button" disabled={busy}>{busy ? "Please wait…" : mode==="signup" ? t("dash.createAccount") : t("dash.signin")}</button>
         </form>
-        <p className="auth-switch">{mode==="signup" ? "Already have an account?" : "New here?"} <button onClick={()=>{setMode(mode==="signup"?"login":"signup");setError("");setNotice("");}}>{mode==="signup"?"Sign in":"Create an account"}</button></p>
-        {mode==="signup" && <p className="privacy-note">Email confirmation may be required depending on Supabase Auth settings.</p>}
+        <p className="auth-switch">{mode==="signup" ? t("dash.haveAccount") : t("dash.newHere")} <button onClick={()=>{setMode(mode==="signup"?"login":"signup");setError("");setNotice("");}}>{mode==="signup" ? t("dash.signin") : t("dash.createAccount")}</button></p>
+        {mode==="signup" && <p className="privacy-note">{t("dash.confirmHint")}</p>}
       </section> :
       !profile ? <section className="dashboard-panel">
-        <div className="panel-heading"><div className="dashboard-icon"><UserRound size={20}/></div><div><h2>Claim your username</h2><p>Your username becomes your public anonymous-message link. It can only be claimed once.</p></div></div>
+        <div className="panel-heading"><div className="dashboard-icon"><UserRound size={20}/></div><div><h2>{t("dash.claimTitle")}</h2><p>{t("dash.claimDesc")}</p></div></div>
         <form onSubmit={claimProfile} className="dashboard-form">
           <label htmlFor="username">Your username</label><div className="dashboard-username"><span>@</span><input id="username" value={username} onChange={e=>setUsername(e.target.value.replace(/[^a-zA-Z0-9_.]/g,"").slice(0,24))} placeholder="yourname" required/></div>
-          <button className="primary-button full-button" disabled={busy}>Claim username <Check size={16}/></button>
+          <button className="primary-button full-button" disabled={busy}>{t("dash.claimBtn")} <Check size={16}/></button>
         </form>
-        <p className="privacy-note">Signed in securely. Your inbox is private to this account.</p>
-        <button className="logout-button" onClick={signOut}><LogOut size={15}/> Sign out</button>
+        <p className="privacy-note">{t("dash.signedIn")}</p>
+        <button className="logout-button" onClick={signOut}><LogOut size={15}/> {t("dash.signOut")}</button>
       </section> :
       <>
         <section className="dashboard-panel profile-panel">
@@ -278,32 +446,40 @@ export default function DashboardPage() {
             {profile.avatar_url
               ? <img className="send-avatar profile-avatar-img" src={profile.avatar_url} alt={`@${profile.username}`} referrerPolicy="no-referrer"/>
               : <div className="send-avatar" style={{ background: THEMES[themeOrDefault(profile.theme)].gradient }}>{profile.username.slice(0,1).toUpperCase()}</div>}
-            <div className="profile-summary-copy"><span className="eyebrow">YOUR PUBLIC LINK</span><h2>@{profile.username}</h2><p>{typeof window !== "undefined" ? window.location.origin : ""}/{profile.username}</p>{profile.bio && <p className="profile-bio">{profile.bio}</p>}</div>
+            <div className="profile-summary-copy"><span className="eyebrow">{t("dash.yourLink")}</span><h2>@{profile.username}</h2><p>{typeof window !== "undefined" ? window.location.origin : ""}/{profile.username}</p>{profile.bio && <p className="profile-bio">{profile.bio}</p>}</div>
           </div>
-          <button className="primary-button full-button" onClick={copyLink}>{copied ? <><Check size={16}/> Copied</> : <><Copy size={16}/> Copy my link</>}</button>
+          <button className="primary-button full-button" onClick={copyLink}>{copied ? <><Check size={16}/> {t("dash.copied")}</> : <><Copy size={16}/> {t("dash.copy")}</>}</button>
+          <div className="share-via"><span>{t("dash.shareVia")}</span><button className="secondary-button" onClick={()=>shareVia("whatsapp")}><MessageCircle size={15}/> WhatsApp</button><button className="secondary-button" onClick={()=>shareVia("x")}><Twitter size={15}/> X</button><button className="secondary-button" onClick={()=>shareVia("threads")}><AtSign size={15}/> Threads</button></div>
           <div className="qr-row">
             {qrUrl && <img className="qr-image" src={qrUrl} alt="QR code to your anonymous link"/>}
-            <div className="qr-copy"><strong>Share your link as a QR card</strong><p>Post it to your story — friends scan it to reach your link.</p><button className="secondary-button" disabled={sharingLink} onClick={()=>void shareLink()}><QrCode size={15}/> {sharingLink ? "Making image…" : "Download link card"}</button></div>
+            <div className="qr-copy"><strong>{t("dash.qrTitle")}</strong><p>{t("dash.qrDesc")}</p><button className="secondary-button" disabled={sharingLink} onClick={()=>void shareLink()}><QrCode size={15}/> {sharingLink ? t("dash.making") : t("dash.qrBtn")}</button></div>
           </div>
+          <button className="secondary-button" onClick={()=>void enableNotifications()} disabled={notificationsOn}><Bell size={15}/> {notificationsOn ? t("dash.notifyOn") : t("dash.notify")}</button>
+          <button className="secondary-button" onClick={()=>void copyEmbedCode()}><Globe size={15}/> Copy embed code</button>
         </section>
 
         <section className="stats-grid" aria-label="Inbox statistics">
-          <div className="stat-card"><strong>{stats.total}</strong><span>Total messages</span></div>
-          <div className="stat-card"><strong>{stats.today}</strong><span>Today</span></div>
-          <div className="stat-card"><strong>{stats.liked}</strong><span>Liked</span></div>
-          <div className="stat-card"><strong>{stats.unread}</strong><span>Unread</span></div>
+          <div className="stat-card"><strong>{stats.total}</strong><span>{t("dash.statTotal")}</span></div>
+          <div className="stat-card"><strong>{stats.today}</strong><span>{t("dash.statToday")}</span></div>
+          <div className="stat-card"><strong>{stats.liked}</strong><span>{t("dash.statLiked")}</span></div>
+          <div className="stat-card"><strong>{stats.unread}</strong><span>{t("dash.statUnread")}</span></div>
         </section>
 
+        {stats.byDay.length > 0 && <section className="dashboard-panel week-chart"><h3>{t("dash.weekTitle")}</h3><div className="chart-bars">{stats.byDay.map((d) => <div className="chart-bar-col" key={d.date}><div className="chart-bar" style={{ height: `${Math.max(4, Math.round((d.count / maxDayCount) * 72))}px` }} title={`${d.date}: ${d.count}`}/><span>{new Date(`${d.date}T00:00:00Z`).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { weekday: "short" })}</span><strong>{d.count}</strong></div>)}</div></section>}
+
         <section className="dashboard-panel profile-edit-panel">
-          <div className="panel-heading"><div className="dashboard-icon"><Palette size={20}/></div><div><h2>Customise your profile</h2><p>Bio, photo and theme show on your public link.</p></div></div>
+          <div className="panel-heading"><div className="dashboard-icon"><Palette size={20}/></div><div><h2>{t("dash.customise")}</h2><p>{t("dash.customiseDesc")}</p></div></div>
           <form onSubmit={saveProfile} className="dashboard-form">
-            <label htmlFor="bio">Bio</label>
+            <label htmlFor="bio">{t("dash.bio")}</label>
             <textarea id="bio" value={bioDraft} onChange={e=>setBioDraft(e.target.value.slice(0,160))} placeholder="A line about you..." maxLength={160} rows={2}/>
             <span className="field-hint">{bioDraft.length}/160</span>
-            <label htmlFor="avatar">Photo URL</label>
+            <label htmlFor="avatar">{t("dash.photo")}</label>
             <input id="avatar" type="url" value={avatarDraft} onChange={e=>setAvatarDraft(e.target.value)} placeholder="https://example.com/photo.jpg"/>
-            <p className="privacy-note">Paste a direct https image link. Leave empty to use your initial.</p>
-            <span className="field-label">Theme</span>
+            <p className="privacy-note">{t("dash.photoHint")}</p>
+            <label htmlFor="bg">{t("dash.bg")}</label>
+            <input id="bg" type="url" value={bgDraft} onChange={e=>setBgDraft(e.target.value)} placeholder="https://example.com/background.jpg"/>
+            <p className="privacy-note">{t("dash.bgHint")}</p>
+            <span className="field-label">{t("dash.theme")}</span>
             <div className="theme-picker">
               {THEME_IDS.map((id) => (
                 <button type="button" key={id} className={`theme-swatch${themeDraft === id ? " selected" : ""}`} style={{ background: THEMES[id].gradient }} aria-pressed={themeDraft === id} aria-label={THEMES[id].label} title={THEMES[id].label} onClick={()=>setThemeDraft(id)}>
@@ -311,49 +487,82 @@ export default function DashboardPage() {
                 </button>
               ))}
             </div>
-            <label htmlFor="prompt">Your question</label>
+            <label htmlFor="prompt">{t("dash.question")}</label>
             <input id="prompt" value={promptDraft} onChange={e=>setPromptDraft(e.target.value.slice(0,140))} placeholder="Ask me anything..." maxLength={140}/>
-            <span className="field-hint">{promptDraft.length}/140 — shown on your public link</span>
-            <button className="primary-button full-button" disabled={busy}>{busy ? "Saving…" : "Save profile"}</button>
+            <span className="field-hint">{promptDraft.length}/140 — {t("dash.questionHint")}</span>
+            <label className="toggle-row"><input type="checkbox" checked={promptAutoDraft} onChange={e=>setPromptAutoDraft(e.target.checked)}/><span>{t("dash.daily")}</span></label>
+            <label className="toggle-row"><input type="checkbox" checked={pausedDraft} onChange={e=>setPausedDraft(e.target.checked)}/><span>{t("dash.pause")}</span></label>
+            <label className="toggle-row"><input type="checkbox" checked={discoverableDraft} onChange={e=>setDiscoverableDraft(e.target.checked)}/><span>{t("dash.discoverable")}</span></label>
+            <span className="field-label">{t("dash.socials")}</span>
+            <label htmlFor="instagram">Instagram</label>
+            <input id="instagram" value={instagramDraft} onChange={e=>setInstagramDraft(e.target.value)} placeholder="username" maxLength={100}/>
+            <label htmlFor="tiktok">TikTok</label>
+            <input id="tiktok" value={tiktokDraft} onChange={e=>setTiktokDraft(e.target.value)} placeholder="username" maxLength={100}/>
+            <label htmlFor="x">X</label>
+            <input id="x" value={xDraft} onChange={e=>setXDraft(e.target.value)} placeholder="username" maxLength={100}/>
+            <button className="primary-button full-button" disabled={busy}>{busy ? t("dash.saving") : t("dash.save")}</button>
+          </form>
+          <form onSubmit={changeUsername} className="dashboard-form username-change">
+            <label htmlFor="newUsername">{t("dash.newUsername")}</label>
+            <div className="dashboard-username"><span>@</span><input id="newUsername" value={newUsernameDraft} onChange={e=>setNewUsernameDraft(e.target.value.replace(/[^a-zA-Z0-9_.]/g,"").slice(0,24))} placeholder={profile.username} required/></div>
+            <button className="secondary-button" disabled={busy}>{t("dash.changeUsername")}</button>
           </form>
         </section>
 
-        <section className="inbox-section"><div className="inbox-title"><div><span className="eyebrow">STRAIGHT FROM THE HEART</span><h2>Your inbox <span>{messages.length}</span></h2></div><button className="icon-button" aria-label="Refresh inbox" onClick={()=>{setLoading(true);void loadPrivateData();}}><RefreshCw size={16}/></button></div>
+        <section className="inbox-section"><div className="inbox-title"><div><span className="eyebrow">{t("dash.inboxEyebrow")}</span><h2>{t("dash.inbox")} <span>{messages.length}</span></h2></div><button className="icon-button" aria-label="Refresh inbox" onClick={()=>{setLoading(true);void loadPrivateData();}}><RefreshCw size={16}/></button></div>
+          <div className="inbox-tools">
+            <div className="search-box"><Search size={15}/><input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder={t("dash.search")} aria-label={t("dash.search")}/></div>
+            <button className="secondary-button" onClick={exportInbox}><Download size={15}/> {t("dash.export")}</button>
+            <select className="card-style-select" value={cardStyle} onChange={e=>setCardStyle(e.target.value as CardStyle)} aria-label="Card style">
+              <option value="classic">Classic card</option><option value="minimal">Minimal card</option><option value="bold">Bold card</option>
+            </select>
+          </div>
           <div className="filter-tabs" role="tablist" aria-label="Filter messages">
-            {(["all", "unread", "liked"] as Filter[]).map((f) => (
+            {(["all", "unread", "liked", "archived"] as Filter[]).map((f) => (
               <button key={f} role="tab" aria-selected={filter === f} className={`filter-tab${filter === f ? " active" : ""}`} onClick={()=>setFilter(f)}>
-                {f === "all" ? `All (${stats.total})` : f === "unread" ? `Unread (${stats.unread})` : `Liked (${stats.liked})`}
+                {f === "all" ? `${t("dash.all")} (${stats.total - archivedCount})` : f === "unread" ? `${t("dash.unread")} (${stats.unread})` : f === "liked" ? `${t("dash.liked")} (${stats.liked})` : `${t("dash.archived")} (${archivedCount})`}
               </button>
             ))}
           </div>
-          {messages.length === 0 ? <div className="dashboard-panel empty-inbox"><div className="empty-icon"><Mail size={22}/></div><h3>Nothing here. Yet.</h3><p>Share your link with friends. Their anonymous messages will show up here.</p><button className="secondary-button" onClick={copyLink}><Copy size={15}/> Share your link</button></div> :
-          filteredMessages.length === 0 ? <div className="dashboard-panel empty-inbox"><div className="empty-icon"><Mail size={22}/></div><h3>No messages here.</h3><p>{filter === "unread" ? "You've read everything. Nice." : "No liked messages yet. Tap the heart on a message you love."}</p></div> :
-            <div className="inbox-list">{filteredMessages.map(message=><article className={`inbox-message${message.is_read ? " is-read" : ""}`} key={message.id}>
-              <div className="message-meta"><span><span className="anonymous-dot"/> ANONYMOUS</span><time dateTime={message.created_at}>{new Date(message.created_at).toLocaleString()}</time>{message.is_public && <span className="public-badge">PUBLIC</span>}
+          {messages.length === 0 ? <div className="dashboard-panel empty-inbox"><div className="empty-icon"><Mail size={22}/></div><h3>{t("dash.emptyTitle")}</h3><p>{t("dash.emptyDesc")}</p><button className="secondary-button" onClick={copyLink}><Copy size={15}/> {t("dash.shareLink")}</button></div> :
+          filteredMessages.length === 0 ? <div className="dashboard-panel empty-inbox"><div className="empty-icon"><Mail size={22}/></div><h3>{t("dash.noFilterTitle")}</h3><p>{filter === "unread" ? t("dash.noUnread") : filter === "liked" ? t("dash.noLiked") : filter === "archived" ? t("dash.noArchived") : t("dash.emptyDesc")}</p></div> :
+            <div className="inbox-list">{filteredMessages.map(message=><article className={`inbox-message${message.is_read ? " is-read" : ""}${message.archived ? " is-archived" : ""}`} key={message.id}>
+              <div className="message-meta"><span><span className="anonymous-dot"/> ANONYMOUS</span><time dateTime={message.created_at}>{new Date(message.created_at).toLocaleString()}</time>{message.is_public && <span className="public-badge">{t("dash.public").toUpperCase()}</span>}{message.pinned && <span className="public-badge">PINNED</span>}
                 <button className={`icon-mini${message.liked ? " liked" : ""}`} onClick={()=>void updateMessage(message.id, { liked: !message.liked })} aria-label={message.liked ? "Unlike message" : "Like message"}><Heart size={15} fill={message.liked ? "currentColor" : "none"}/></button>
                 <button className="icon-mini" onClick={()=>void updateMessage(message.id, { is_read: !message.is_read })} aria-label={message.is_read ? "Mark as unread" : "Mark as read"}>{message.is_read ? <EyeOff size={15}/> : <Eye size={15}/>}</button>
                 <button className="delete-message" onClick={()=>void deleteMessage(message.id)} aria-label="Delete message"><Trash2 size={15}/></button>
               </div>
               <p>{message.message}</p>
-              {message.reply && <div className="message-reply"><span>YOUR REPLY</span><p>{message.reply}</p></div>}
+              {message.reaction && <span className="message-reaction">{message.reaction}</span>}
+              {message.reply && <div className="message-reply"><span>{t("dash.yourReply")}</span><p>{message.reply}</p></div>}
+              <div className="reaction-row">{REACTIONS.map((emoji) => <button key={emoji} className={`reaction-button${message.reaction === emoji ? " selected" : ""}`} onClick={()=>void updateMessage(message.id, { reaction: message.reaction === emoji ? "" : emoji })} aria-label={`React ${emoji}`}>{emoji}</button>)}</div>
               <div className="message-actions">
-                <button className="action-button" onClick={()=>{ setReplyingId(replyingId === message.id ? null : message.id); setReplyDrafts((d) => ({ ...d, [message.id]: d[message.id] ?? message.reply ?? "" })); }}><Reply size={14}/> {message.reply ? "Edit reply" : "Reply"}</button>
-                <button className="action-button" disabled={sharingId === message.id} onClick={()=>void shareMessage(message)}><Share2 size={14}/> {sharingId === message.id ? "Making image…" : "Share to Story"}</button>
-                <button className={`action-button${message.is_public ? " active" : ""}`} disabled={!message.reply} title={message.reply ? "Show this answer on your public link" : "Reply first to publish"} onClick={()=>void updateMessage(message.id, { is_public: !message.is_public })}><Globe size={14}/> {message.is_public ? "Public" : "Publish"}</button>
+                <button className="action-button" onClick={()=>{ setReplyingId(replyingId === message.id ? null : message.id); setReplyDrafts((d) => ({ ...d, [message.id]: d[message.id] ?? message.reply ?? "" })); }}><Reply size={14}/> {message.reply ? t("dash.editReply") : t("dash.reply")}</button>
+                <button className="action-button" disabled={sharingId === message.id} onClick={()=>void shareMessage(message)}><Share2 size={14}/> {sharingId === message.id ? t("dash.making") : t("dash.shareStory")}</button>
+                <button className={`action-button${message.is_public ? " active" : ""}`} disabled={!message.reply} title={message.reply ? "Show this answer on your public link" : "Reply first to publish"} onClick={()=>void updateMessage(message.id, { is_public: !message.is_public })}><Globe size={14}/> {message.is_public ? t("dash.public") : t("dash.publish")}</button>
+                <button className="action-button" onClick={()=>void updateMessage(message.id, { pinned: !message.pinned })}><Pin size={14}/> {message.pinned ? t("dash.unpin") : t("dash.pin")}</button>
+                <button className="action-button" onClick={()=>void updateMessage(message.id, { archived: !message.archived })}><Archive size={14}/> {message.archived ? t("dash.unarchive") : t("dash.archive")}</button>
+                <button className="action-button" onClick={()=>void blockSender(message.id)}><Ban size={14}/> {t("dash.block")}</button>
               </div>
               {replyingId === message.id && <div className="reply-editor">
                 <textarea value={replyDrafts[message.id] ?? ""} onChange={e=>setReplyDrafts((d) => ({ ...d, [message.id]: e.target.value.slice(0, 500) }))} placeholder="Write your reply..." maxLength={500} rows={3}/>
                 <div className="reply-editor-actions">
-                  <button className="primary-button" disabled={busy} onClick={()=>void updateMessage(message.id, { reply: replyDrafts[message.id] ?? "" })}>Save reply</button>
-                  {message.reply && <button className="secondary-button" onClick={()=>void updateMessage(message.id, { reply: "" })}>Delete reply</button>}
-                  <button className="secondary-button" onClick={()=>setReplyingId(null)}>Cancel</button>
+                  <button className="primary-button" disabled={busy} onClick={()=>void updateMessage(message.id, { reply: replyDrafts[message.id] ?? "" })}>{t("dash.saveReply")}</button>
+                  {message.reply && <button className="secondary-button" onClick={()=>void updateMessage(message.id, { reply: "" })}>{t("dash.deleteReply")}</button>}
+                  <button className="secondary-button" onClick={()=>setReplyingId(null)}>{t("dash.cancel")}</button>
                 </div>
               </div>}
             </article>)}</div>}
         </section>
-        <button className="logout-button" onClick={signOut}><LogOut size={15}/> Sign out</button>
+
+        <section className="dashboard-panel blocked-panel">
+          <h3>{t("dash.blockedTitle")} <span>({blocks.length})</span></h3>
+          {blocks.length === 0 ? <p className="privacy-note">{t("dash.noBlocked")}</p> :
+            <ul className="blocked-list">{blocks.map((b) => <li key={b.ip_hash}><code>{b.ip_hash.slice(0, 12)}…</code><span>{new Date(b.created_at).toLocaleDateString()}</span><button className="secondary-button" onClick={()=>void unblock(b.ip_hash)}>{t("dash.unblock")}</button></li>)}</ul>}
+        </section>
+        <button className="logout-button" onClick={signOut}><LogOut size={15}/> {t("dash.signOut")}</button>
       </>}
     </section>
-    <footer className="message-footer">Be kind. Stay curious.</footer>
+    <footer className="message-footer">{t("dash.privacy")}</footer>
   </main>;
 }
