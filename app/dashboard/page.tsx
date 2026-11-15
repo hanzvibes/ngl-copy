@@ -7,7 +7,7 @@ import QRCode from "qrcode";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { tap } from "@/lib/vibrate";
 import { shareLinkCard } from "@/lib/link-card";
-import { downloadBlob, renderStoryCardBlob, type CardStyle } from "@/lib/share-card";
+import { downloadBlob, renderStoryCardBlob, type CardBackground, type CardStyle, type StickerKey } from "@/lib/share-card";
 import { THEMES, themeOrDefault, type ThemeId } from "@/lib/themes";
 import { getInitialLang, tr, useLang } from "@/lib/i18n";
 import { getThemeMode, toggleThemeMode, type ThemeMode } from "@/lib/theme";
@@ -19,6 +19,30 @@ type Stats = { total: number; today: number; liked: number; unread: number; byDa
 type Filter = "all" | "unread" | "liked" | "archived";
 
 const REACTIONS = ["❤️", "😂", "😮", "🔥", "😢", "👍"];
+
+const TEMPLATES: { id: CardStyle; labelKey: string }[] = [
+  { id: "ngl", labelKey: "story.tplNgl" },
+  { id: "dark", labelKey: "story.tplDark" },
+  { id: "bold", labelKey: "story.tplBold" },
+  { id: "minimal", labelKey: "story.tplMinimal" },
+  { id: "neon", labelKey: "story.tplNeon" },
+  { id: "paper", labelKey: "story.tplPaper" },
+];
+const BACKGROUNDS: { id: CardBackground; labelKey: string }[] = [
+  { id: "dark", labelKey: "story.bgDark" },
+  { id: "theme", labelKey: "story.bgTheme" },
+  { id: "sunset", labelKey: "story.bgSunset" },
+  { id: "ocean", labelKey: "story.bgOcean" },
+  { id: "neon", labelKey: "story.bgNeon" },
+  { id: "paper", labelKey: "story.bgPaper" },
+];
+const STICKERS: { id: StickerKey; labelKey: string }[] = [
+  { id: "none", labelKey: "story.stickerNone" },
+  { id: "ask", labelKey: "story.stickerAsk" },
+  { id: "honest", labelKey: "story.stickerHonest" },
+  { id: "curious", labelKey: "story.stickerCurious" },
+  { id: "ama", labelKey: "story.stickerAma" },
+];
 
 function computeStats(list: Message[]): Stats {
   const todayStart = new Date();
@@ -81,7 +105,14 @@ export default function DashboardPage() {
   const [sharingId, setSharingId] = useState<number | null>(null);
   const [storyPreview, setStoryPreview] = useState<{ url: string; blob: Blob; filename: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [cardStyle, setCardStyle] = useState<CardStyle>("classic");
+  const [cardStyle, setCardStyle] = useState<CardStyle>("ngl");
+  const [cardBackground, setCardBackground] = useState<CardBackground>("dark");
+  const [sticker, setSticker] = useState<StickerKey>("ask");
+  const [showQR, setShowQR] = useState(true);
+  const [hideUsername, setHideUsername] = useState(false);
+  const [showReply, setShowReply] = useState(true);
+  const [storyMessage, setStoryMessage] = useState<Message | null>(null);
+  const [captionCopied, setCaptionCopied] = useState(false);
 
   const [notificationsOn, setNotificationsOn] = useState(false);
   const [lang, setLang] = useLang();
@@ -293,9 +324,18 @@ export default function DashboardPage() {
     }
   }
 
-  async function shareMessage(message: Message) {
+  function stickerText(): string | null {
+    switch (sticker) {
+      case "ask": return t("story.stickerAsk");
+      case "honest": return t("story.stickerHonest");
+      case "curious": return t("story.stickerCurious");
+      case "ama": return t("story.stickerAma");
+      default: return null;
+    }
+  }
+
+  async function renderPreview(message: Message) {
     if (!profile) return;
-    setSharingId(message.id); setError(""); setNotice("");
     try {
       const rendered = await renderStoryCardBlob({
         username: profile.username,
@@ -303,16 +343,43 @@ export default function DashboardPage() {
         reply: message.reply,
         theme: profile.theme,
         style: cardStyle,
+        background: cardBackground,
+        sticker: stickerText(),
+        showQR,
+        hideUsername,
+        showReply,
+        origin: window.location.origin,
       });
       const url = URL.createObjectURL(rendered.blob);
       setStoryPreview((prev) => { if (prev) URL.revokeObjectURL(prev.url); return { url, blob: rendered.blob, filename: rendered.filename }; });
     } catch {
       setError("Gambar Story gagal dibuat di browser ini.");
-    } finally { setSharingId(null); }
+    }
+  }
+
+  async function shareMessage(message: Message) {
+    if (!profile) return;
+    setSharingId(message.id); setError(""); setNotice("");
+    setStoryMessage(message);
+    await renderPreview(message);
+    setSharingId(null);
+  }
+
+  async function copyCaption() {
+    if (!profile) return;
+    const caption = `${t("story.captionLine")}\n${window.location.origin}/${profile.username}`;
+    try {
+      await navigator.clipboard.writeText(caption);
+      setCaptionCopied(true);
+      setTimeout(() => setCaptionCopied(false), 1500);
+    } catch {
+      setError("Gagal menyalin caption.");
+    }
   }
 
   function closeStoryPreview() {
     setStoryPreview((prev) => { if (prev) URL.revokeObjectURL(prev.url); return null; });
+    setStoryMessage(null);
   }
 
   async function confirmStoryShare() {
@@ -339,6 +406,11 @@ export default function DashboardPage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [storyPreview]);
+
+  useEffect(() => {
+    if (!storyPreview || !storyMessage) return;
+    void renderPreview(storyMessage);
+  }, [cardStyle, cardBackground, sticker, showQR, hideUsername, showReply]);
 
   async function shareLink() {
     tap();
@@ -455,9 +527,6 @@ export default function DashboardPage() {
           <div className="inbox-tools">
             <div className="search-box"><Search size={15}/><input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder={t("dash.search")} aria-label={t("dash.search")}/></div>
             <button className="secondary-button" onClick={exportInbox}><Download size={15}/> {t("dash.export")}</button>
-            <select className="card-style-select" value={cardStyle} onChange={e=>setCardStyle(e.target.value as CardStyle)} aria-label="Card style">
-              <option value="classic">Classic card</option><option value="minimal">Minimal card</option><option value="bold">Bold card</option>
-            </select>
           </div>
           <div className="filter-tabs" role="tablist" aria-label="Filter messages">
             {(["all", "unread", "liked", "archived"] as Filter[]).map((f) => (
@@ -505,6 +574,17 @@ export default function DashboardPage() {
         <h2>{t("dash.storyPreview")}</h2>
         <p>{t("dash.storyPreviewDesc")}</p>
         <img src={storyPreview.url} alt={t("dash.storyPreview")} />
+        <div className="studio-controls">
+          <div className="studio-group"><span>{t("story.template")}</span><div className="studio-pills">{TEMPLATES.map((tpl) => <button key={tpl.id} type="button" className={`studio-pill${cardStyle === tpl.id ? " active" : ""}`} onClick={()=>setCardStyle(tpl.id)}>{t(tpl.labelKey)}</button>)}</div></div>
+          <div className="studio-group"><span>{t("story.background")}</span><div className="studio-pills">{BACKGROUNDS.map((bg) => <button key={bg.id} type="button" className={`studio-pill${cardBackground === bg.id ? " active" : ""}`} onClick={()=>setCardBackground(bg.id)}>{t(bg.labelKey)}</button>)}</div></div>
+          <div className="studio-group"><span>{t("story.sticker")}</span><select className="studio-select" value={sticker} onChange={e=>setSticker(e.target.value as StickerKey)} aria-label={t("story.sticker")}>{STICKERS.map((st) => <option key={st.id} value={st.id}>{t(st.labelKey)}</option>)}</select></div>
+          <div className="studio-toggles">
+            <label className="studio-toggle"><input type="checkbox" checked={showQR} onChange={e=>setShowQR(e.target.checked)}/> {t("story.showQR")}</label>
+            <label className="studio-toggle"><input type="checkbox" checked={hideUsername} onChange={e=>setHideUsername(e.target.checked)}/> {t("story.hideUsername")}</label>
+            <label className="studio-toggle"><input type="checkbox" checked={showReply} onChange={e=>setShowReply(e.target.checked)}/> {t("story.showReply")}</label>
+          </div>
+          <button className="secondary-button" onClick={()=>void copyCaption()}><Copy size={15}/> {captionCopied ? t("story.captionCopied") : t("story.copyCaption")}</button>
+        </div>
         <div className="story-modal-actions">
           <button className="primary-button" onClick={()=>void confirmStoryShare()}><Share2 size={16}/> {t("dash.shareStory")}</button>
           <button className="secondary-button" onClick={closeStoryPreview}>{t("dash.close")}</button>
