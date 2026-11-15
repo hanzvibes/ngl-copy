@@ -26,7 +26,7 @@ export async function GET(request: Request) {
   });
   const { data, error } = await supabase
     .from("ngl_profiles")
-    .select("username, bio, avatar_url, theme, prompt, prompt_auto, paused, bg_url, instagram, tiktok, x_handle")
+    .select("user_id, username, bio, avatar_url, theme, prompt, prompt_auto, paused, bg_url, instagram, tiktok, x_handle, friends_only, auto_reply, custom_bg, custom_bg2, spotify_url")
     .ilike("username", username)
     .maybeSingle();
   if (error) {
@@ -34,5 +34,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Profil gagal dimuat." }, { status: 500 });
   }
   if (!data) return NextResponse.json({ error: "Link ini belum aktif." }, { status: 404 });
-  return NextResponse.json({ profile: data });
+  // "Lagi ramai" badge: how many messages arrived in the last hour.
+  const oneHourAgo = new Date(Date.now() - 3_600_000).toISOString();
+  const { count } = await supabase
+    .from("ngl_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_user_id", data.user_id)
+    .gte("created_at", oneHourAgo);
+  const { user_id: _ownerId, ...publicProfile } = data;
+  return NextResponse.json({ profile: { ...publicProfile, recent_count: count ?? 0 } });
 }

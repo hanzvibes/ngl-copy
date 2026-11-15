@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
-const MESSAGE_COLUMNS = "id, message, created_at, reply, liked, is_read, is_public, archived, pinned, reaction";
+const MESSAGE_COLUMNS = "id, message, created_at, reply, liked, is_read, is_public, archived, pinned, reaction, parent_id, media_url, media_kind, reply_media_url, reply_media_kind";
 
 type InboxRow = {
   id: number;
@@ -16,6 +16,11 @@ type InboxRow = {
   archived: boolean;
   pinned: boolean;
   reaction: string | null;
+  parent_id: number | null;
+  media_url: string | null;
+  media_kind: string | null;
+  reply_media_url: string | null;
+  reply_media_kind: string | null;
 };
 
 function clients() {
@@ -68,9 +73,18 @@ export async function GET(request: Request) {
   if (!c) return NextResponse.json({ error: "Supabase belum dikonfigurasi." }, { status: 503 });
   if (!user) return NextResponse.json({ error: "Silakan login ulang." }, { status: 401 });
 
+  // ?as_owner=<uuid> loads a collaborator's inbox (verified below).
+  const asOwner = new URL(request.url).searchParams.get("as_owner") || "";
+  let ownerId = user.id;
+  if (asOwner && asOwner !== user.id) {
+    const { data: collab } = await c.admin.from("ngl_collaborators")
+      .select("id").eq("owner_id", asOwner).eq("collaborator_id", user.id).maybeSingle();
+    if (!collab) return NextResponse.json({ error: "Inbox itu bukan milikmu." }, { status: 403 });
+    ownerId = asOwner;
+  }
   const { data, error } = await c.admin.from("ngl_messages")
     .select(MESSAGE_COLUMNS)
-    .eq("owner_user_id", user.id)
+    .eq("owner_user_id", ownerId)
     .order("pinned", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(100);
@@ -97,6 +111,11 @@ export async function GET(request: Request) {
     archived: false,
     pinned: false,
     reaction: null,
+    parent_id: null,
+    media_url: null,
+    media_kind: null,
+    reply_media_url: null,
+    reply_media_kind: null,
   }));
   return NextResponse.json({ messages: rows, stats: statsFor(rows) });
 }
@@ -125,7 +144,7 @@ export async function PATCH(request: Request) {
     const id = typeof body.id === "string" || typeof body.id === "number" ? String(body.id) : "";
     if (!/^\d{1,19}$/.test(id)) return NextResponse.json({ error: "ID pesan tidak valid." }, { status: 400 });
 
-    const updates: { reply?: string | null; liked?: boolean; is_read?: boolean; is_public?: boolean; archived?: boolean; pinned?: boolean; reaction?: string | null } = {};
+    const updates: { reply?: string | null; liked?: boolean; is_read?: boolean; is_public?: boolean; archived?: boolean; pinned?: boolean; reaction?: string | null; reply_media_url?: string | null; reply_media_kind?: string | null } = {};
     if (typeof body.reply === "string") {
       const reply = body.reply.trim();
       if (reply.length > 500) return NextResponse.json({ error: "Balasan maksimal 500 karakter." }, { status: 400 });
@@ -136,6 +155,24 @@ export async function PATCH(request: Request) {
     if (typeof body.is_public === "boolean") updates.is_public = body.is_public;
     if (typeof body.archived === "boolean") updates.archived = body.archived;
     if (typeof body.pinned === "boolean") updates.pinned = body.pinned;
+    if (typeof body.reply_media_url === "string" || body.reply_media_url === null) {
+      if (body.reply_media_url === null) {
+        updates.reply_media_url = null;
+        updates.reply_media_kind = null;
+      } else {
+        const mediaUrl = body.reply_media_url.trim();
+        if (mediaUrl.length > 500) return NextResponse.json({ error: "URL foto balasan terlalu panjang." }, { status: 400 });
+        let parsed: URL;
+        try { parsed = new URL(mediaUrl); } catch {
+          return NextResponse.json({ error: "URL foto balasan harus diawali https://." }, { status: 400 });
+        }
+        if (parsed.protocol !== "https:") {
+          return NextResponse.json({ error: "URL foto balasan harus diawali https://." }, { status: 400 });
+        }
+        updates.reply_media_url = mediaUrl;
+        updates.reply_media_kind = "image";
+      }
+    }
     if (typeof body.reaction === "string") {
       const reaction = body.reaction.trim();
       if (reaction !== "" && !REACTIONS.includes(reaction)) {
@@ -147,8 +184,19 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Tidak ada perubahan pesan." }, { status: 400 });
     }
 
+    // Owners update their own messages; collaborators may update the
+    // inbox they were added to (reply, like, read, publish...).
+    const { data: ownerRow } = await c.admin.from("ngl_messages")
+      .select("owner_user_id").eq("id", id).maybeSingle();
+    if (!ownerRow) return NextResponse.json({ error: "Pesan tidak ditemukan." }, { status: 404 });
+    const ownerId = ownerRow.owner_user_id as string;
+    if (ownerId !== user.id) {
+      const { data: collab } = await c.admin.from("ngl_collaborators")
+        .select("id").eq("owner_id", ownerId).eq("collaborator_id", user.id).maybeSingle();
+      if (!collab) return NextResponse.json({ error: "Pesan tidak ditemukan." }, { status: 404 });
+    }
     const { data, error } = await c.admin.from("ngl_messages")
-      .update(updates).eq("id", id).eq("owner_user_id", user.id)
+      .update(updates).eq("id", id).eq("owner_user_id", ownerId)
       .select(MESSAGE_COLUMNS).maybeSingle();
     if (error) {
       console.error("NGL inbox update failed:", error.code);

@@ -14,6 +14,7 @@ import QRCode from "qrcode";
 import { THEMES, themeOrDefault, type ThemeId } from "./themes";
 
 export type CardStyle = "ngl" | "dark" | "bold" | "minimal" | "neon" | "paper";
+export type CardFont = "dm" | "grotesk" | "caveat" | "playfair";
 export type CardBackground = "dark" | "theme" | "sunset" | "ocean" | "neon" | "paper";
 export type StickerKey = "none" | "ask" | "honest" | "curious" | "ama";
 
@@ -24,6 +25,8 @@ export type ShareCardInput = {
   theme: ThemeId | string;
   style?: CardStyle;
   background?: CardBackground;
+  /** Message font for the card. Default "dm". */
+  font?: CardFont;
   /** Literal sticker text to draw, or null for no sticker. */
   sticker?: string | null;
   /** Draw the QR code of the owner's link. Default true. */
@@ -281,6 +284,16 @@ async function drawCard(input: ShareCardInput): Promise<HTMLCanvasElement> {
   const themeId = themeOrDefault(input.theme);
   const style = input.style ?? "ngl";
   const background = input.background ?? "dark";
+  const font = input.font ?? "dm";
+  const msgFamily =
+    font === "grotesk" ? "'Space Grotesk', sans-serif"
+    : font === "caveat" ? "'Caveat', cursive"
+    : font === "playfair" ? "'Playfair Display', serif"
+    : "'DM Sans', sans-serif";
+  const msgSize = style === "bold" ? 52 : font === "caveat" ? 56 : 44;
+  const msgLine = style === "bold" ? 72 : font === "caveat" ? 68 : 62;
+  const replySize = font === "caveat" ? 50 : 44;
+  const replyLine = font === "caveat" ? 64 : 62;
   const showQR = input.showQR ?? true;
   const hideUsername = input.hideUsername ?? false;
   const showReply = input.showReply ?? true;
@@ -362,8 +375,7 @@ async function drawCard(input: ShareCardInput): Promise<HTMLCanvasElement> {
   const hasReply = showReply && !!input.reply?.trim();
   const hasSticker = !!input.sticker?.trim();
   const contentLimit = (qrImg ? 1560 : 1720) - (hasSticker ? 104 : 0);
-  const msgFont = style === "bold" ? "500 52px 'DM Sans', sans-serif" : "400 44px 'DM Sans', sans-serif";
-  const msgLine = style === "bold" ? 72 : 62;
+  const msgFont = `500 ${msgSize}px ${msgFamily}`;
 
   // Message bubble (truncated to fit).
   ctx.font = msgFont;
@@ -392,11 +404,11 @@ async function drawCard(input: ShareCardInput): Promise<HTMLCanvasElement> {
 
   // Owner reply, when there is one and it is enabled.
   if (hasReply) {
-    ctx.font = "400 44px 'DM Sans', sans-serif";
+    ctx.font = `400 ${replySize}px ${msgFamily}`;
     const allReplyLines = wrapText(ctx, input.reply!.trim(), 800);
-    const maxReplyLines = Math.max(1, Math.floor((contentLimit - y - 100) / 62));
+    const maxReplyLines = Math.max(1, Math.floor((contentLimit - y - 100) / replyLine));
     const replyLines = fitLines(allReplyLines, maxReplyLines);
-    const replyHeight = 100 + replyLines.length * 62;
+    const replyHeight = 100 + replyLines.length * replyLine;
     ctx.fillStyle = tpl.replyBg;
     roundRect(ctx, 80, y, 920, replyHeight, 36);
     ctx.fill();
@@ -409,9 +421,9 @@ async function drawCard(input: ShareCardInput): Promise<HTMLCanvasElement> {
     ctx.font = "700 26px 'DM Sans', sans-serif";
     ctx.fillText(`${hideUsername ? "anonymous" : `@${input.username}`}  REPLIED`, 120, y + 62);
     ctx.fillStyle = tpl.replyText;
-    ctx.font = "400 44px 'DM Sans', sans-serif";
+    ctx.font = `400 ${replySize}px ${msgFamily}`;
     replyLines.forEach((line, i) => {
-      ctx.fillText(line, 120, y + 132 + i * 62);
+      ctx.fillText(line, 120, y + 132 + i * replyLine);
     });
     y += replyHeight + 36;
   }
@@ -468,11 +480,15 @@ async function drawCard(input: ShareCardInput): Promise<HTMLCanvasElement> {
 export async function renderStoryCardBlob(input: ShareCardInput): Promise<{ blob: Blob; filename: string }> {
   // Wait for the webfonts so the card never renders in a fallback font.
   try {
-    await Promise.all([
+    const loads = [
       document.fonts.load("700 54px 'Space Grotesk'"),
       document.fonts.load("400 44px 'DM Sans'"),
       document.fonts.ready,
-    ]);
+    ];
+    if (input.font === "caveat") loads.push(document.fonts.load("500 56px 'Caveat'"));
+    if (input.font === "playfair") loads.push(document.fonts.load("500 44px 'Playfair Display'"));
+    if (input.font === "grotesk") loads.push(document.fonts.load("500 44px 'Space Grotesk'"));
+    await Promise.all(loads);
   } catch {
     /* fall back to whatever fonts are available */
   }

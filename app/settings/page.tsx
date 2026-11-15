@@ -3,15 +3,16 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, Download, LogOut, Moon, Palette, RefreshCw, Sun } from "lucide-react";
+import { ArrowLeft, Bell, Check, Download, LogOut, Moon, Palette, RefreshCw, Sun, UserPlus, Users } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { THEMES, THEME_IDS, themeOrDefault, type ThemeId } from "@/lib/themes";
 import { tr, useLang } from "@/lib/i18n";
 import { getThemeMode, toggleThemeMode, type ThemeMode } from "@/lib/theme";
+import { getPushSubscription, isPushSupported, subscribePush, unsubscribePush } from "@/lib/push";
 import AppTabBar from "@/components/AppTabBar";
 import InstallAppButton from "@/components/InstallAppButton";
 
-type Profile = { username: string; created_at?: string; bio: string; avatar_url: string; theme: ThemeId; prompt: string; paused: boolean; prompt_auto: boolean; discoverable: boolean; bg_url: string; instagram: string; tiktok: string; x_handle: string };
+type Profile = { username: string; created_at?: string; bio: string; avatar_url: string; theme: ThemeId; prompt: string; paused: boolean; prompt_auto: boolean; discoverable: boolean; bg_url: string; instagram: string; tiktok: string; x_handle: string; blocked_words: string[]; friends_only: boolean; friends_code: string; auto_reply: string; custom_bg: string; custom_bg2: string; spotify_url: string };
 type Block = { ip_hash: string; created_at: string };
 
 export default function SettingsPage() {
@@ -33,6 +34,17 @@ export default function SettingsPage() {
   const [promptAutoDraft, setPromptAutoDraft] = useState(false);
   const [discoverableDraft, setDiscoverableDraft] = useState(false);
   const [newUsernameDraft, setNewUsernameDraft] = useState("");
+  const [blockedWordsDraft, setBlockedWordsDraft] = useState("");
+  const [friendsOnlyDraft, setFriendsOnlyDraft] = useState(false);
+  const [friendsCodeDraft, setFriendsCodeDraft] = useState("");
+  const [autoReplyDraft, setAutoReplyDraft] = useState("");
+  const [customBgDraft, setCustomBgDraft] = useState("");
+  const [customBg2Draft, setCustomBg2Draft] = useState("");
+  const [spotifyDraft, setSpotifyDraft] = useState("");
+  const [collabs, setCollabs] = useState<{ id: number; username: string; created_at: string }[]>([]);
+  const [collabDraft, setCollabDraft] = useState("");
+  const [pushOn, setPushOn] = useState(false);
+  const [pushSupported, setPushSupported] = useState(false);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [lang, setLang] = useLang();
   const [themeMode, setThemeMode] = useState<ThemeMode>("dark");
@@ -69,16 +81,29 @@ export default function SettingsPage() {
         setPausedDraft(Boolean(nextProfile.paused));
         setPromptAutoDraft(Boolean(nextProfile.prompt_auto));
         setDiscoverableDraft(Boolean(nextProfile.discoverable));
+        setBlockedWordsDraft((nextProfile.blocked_words || []).join(", "));
+        setFriendsOnlyDraft(Boolean(nextProfile.friends_only));
+        setFriendsCodeDraft(nextProfile.friends_code || "");
+        setAutoReplyDraft(nextProfile.auto_reply || "");
+        setCustomBgDraft(nextProfile.custom_bg || "");
+        setCustomBg2Draft(nextProfile.custom_bg2 || "");
+        setSpotifyDraft(nextProfile.spotify_url || "");
         setNewUsernameDraft(nextProfile.username);
       }
       try {
         const blocksData = await request("/api/blocks");
         setBlocks(blocksData.blocks || []);
       } catch { setBlocks([]); }
+      try {
+        const collabData = await request("/api/collaborators");
+        setCollabs(collabData.mine || []);
+      } catch { setCollabs([]); }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Data gagal dimuat.");
     } finally { setLoading(false); }
   }
+
+  useEffect(() => { setPushSupported(isPushSupported()); }, []);
 
   useEffect(() => {
     let active = true;
@@ -87,16 +112,57 @@ export default function SettingsPage() {
       if (!active) return;
       if (!data.session) { router.replace("/dashboard"); return; }
       void loadSettings();
+      getPushSubscription().then((sub) => { if (active) setPushOn(!!sub); }).catch(() => {});
     }).catch(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
+
+  async function togglePush() {
+    const supabase = getSupabaseBrowserClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) { setError("Silakan login ulang."); return; }
+    setBusy(true); setError(""); setNotice("");
+    try {
+      if (pushOn) {
+        await unsubscribePush(session.access_token);
+        setPushOn(false);
+        setNotice(t("settings.pushOff"));
+      } else {
+        const result = await subscribePush(session.access_token);
+        if (result === "subscribed") { setPushOn(true); setNotice(t("settings.pushOn")); }
+        else if (result === "denied") setError(t("settings.pushDenied"));
+        else setError(t("settings.pushFailed"));
+      }
+    } finally { setBusy(false); }
+  }
+
+  async function addCollab(e: FormEvent) {
+    e.preventDefault(); setBusy(true); setError(""); setNotice("");
+    try {
+      const data = await request("/api/collaborators", { method: "POST", body: JSON.stringify({ username: collabDraft }) });
+      setCollabDraft("");
+      setNotice(`@${data.username} sekarang bisa bantu jawab di inbox kamu.`);
+      const collabData = await request("/api/collaborators");
+      setCollabs(collabData.mine || []);
+    } catch (err) { setError(err instanceof Error ? err.message : "Kolaborator gagal ditambahkan."); }
+    finally { setBusy(false); }
+  }
+
+  async function removeCollab(id: number) {
+    setError(""); setNotice("");
+    try {
+      await request("/api/collaborators", { method: "DELETE", body: JSON.stringify({ id }) });
+      setCollabs(collabs.filter((c) => c.id !== id));
+      setNotice("Kolaborator dihapus.");
+    } catch (err) { setError(err instanceof Error ? err.message : "Kolaborator gagal dihapus."); }
+  }
 
   async function saveProfile(e: FormEvent) {
     e.preventDefault(); setBusy(true); setError(""); setNotice("");
     try {
       const data = await request("/api/profile", {
         method: "PATCH",
-        body: JSON.stringify({ bio: bioDraft, avatar_url: avatarDraft, theme: themeDraft, prompt: promptDraft, bg_url: bgDraft, instagram: instagramDraft, tiktok: tiktokDraft, x_handle: xDraft, paused: pausedDraft, prompt_auto: promptAutoDraft, discoverable: discoverableDraft }),
+        body: JSON.stringify({ bio: bioDraft, avatar_url: avatarDraft, theme: themeDraft, prompt: promptDraft, bg_url: bgDraft, instagram: instagramDraft, tiktok: tiktokDraft, x_handle: xDraft, paused: pausedDraft, prompt_auto: promptAutoDraft, discoverable: discoverableDraft, blocked_words: blockedWordsDraft, friends_only: friendsOnlyDraft, friends_code: friendsCodeDraft, auto_reply: autoReplyDraft, custom_bg: customBgDraft, custom_bg2: customBg2Draft, spotify_url: spotifyDraft }),
       });
       setProfile(data.profile);
       setNotice("Profil diperbarui.");
@@ -177,6 +243,47 @@ export default function SettingsPage() {
             <label htmlFor="newUsername">{t("dash.newUsername")}</label>
             <div className="dashboard-username"><span>@</span><input id="newUsername" value={newUsernameDraft} onChange={e=>setNewUsernameDraft(e.target.value.replace(/[^a-zA-Z0-9_.]/g,"").slice(0,24))} placeholder={profile.username} required/></div>
             <button className="secondary-button" disabled={busy}>{t("dash.changeUsername")}</button>
+          </form>
+        </section>
+
+        <section className="dashboard-panel ngl-panel">
+          <div className="panel-heading"><div className="dashboard-icon"><Bell size={20}/></div><div><h2>{t("settings.pushTitle")}</h2><p>{t("settings.pushDesc")}</p></div></div>
+          {pushSupported
+            ? <button className="primary-button full-button" disabled={busy} onClick={()=>void togglePush()}><Bell size={16}/> {pushOn ? t("settings.pushOnBtn") : t("settings.pushOffBtn")}</button>
+            : <p className="privacy-note">{t("settings.pushUnsupported")}</p>}
+        </section>
+
+        <section className="dashboard-panel ngl-panel">
+          <div className="panel-heading"><div className="dashboard-icon"><Users size={20}/></div><div><h2>{t("settings.collabTitle")}</h2><p>{t("settings.collabDesc")}</p></div></div>
+          <form onSubmit={addCollab} className="dashboard-form">
+            <label htmlFor="collabUsername">{t("settings.collabLabel")}</label>
+            <div className="dashboard-username"><span>@</span><input id="collabUsername" value={collabDraft} onChange={e=>setCollabDraft(e.target.value.replace(/[^a-zA-Z0-9_.]/g, "").slice(0, 24))} placeholder="username" required/></div>
+            <button className="secondary-button" disabled={busy}><UserPlus size={15}/> {t("settings.collabAdd")}</button>
+          </form>
+          {collabs.length === 0 ? <p className="privacy-note">{t("settings.collabEmpty")}</p> :
+            <ul className="blocked-list">{collabs.map((c) => <li key={c.id}><code>@{c.username}</code><span>{new Date(c.created_at).toLocaleDateString()}</span><button className="secondary-button" onClick={()=>void removeCollab(c.id)}>{t("settings.collabRemove")}</button></li>)}</ul>}
+        </section>
+
+        <section className="dashboard-panel ngl-panel">
+          <div className="panel-heading"><div className="dashboard-icon"><Palette size={20}/></div><div><h2>{t("settings.moderationTitle")}</h2><p>{t("settings.moderationDesc")}</p></div></div>
+          <form onSubmit={saveProfile} className="dashboard-form">
+            <label htmlFor="blockedWords">{t("settings.blockedWords")}</label>
+            <input id="blockedWords" value={blockedWordsDraft} onChange={e=>setBlockedWordsDraft(e.target.value)} placeholder="kata1, kata2, kata3"/>
+            <p className="privacy-note">{t("settings.blockedWordsHint")}</p>
+            <label className="toggle-row"><input type="checkbox" checked={friendsOnlyDraft} onChange={e=>setFriendsOnlyDraft(e.target.checked)}/><span>{t("settings.friendsOnly")}</span></label>
+            {friendsOnlyDraft && <><label htmlFor="friendsCode">{t("settings.friendsCode")}</label><input id="friendsCode" value={friendsCodeDraft} onChange={e=>setFriendsCodeDraft(e.target.value.replace(/\s+/g, "").slice(0, 24))} placeholder="kode-rahasia" maxLength={24}/></>}
+            <label htmlFor="autoReply">{t("settings.autoReply")}</label>
+            <textarea id="autoReply" value={autoReplyDraft} onChange={e=>setAutoReplyDraft(e.target.value.slice(0, 200))} placeholder={t("settings.autoReplyPh")} maxLength={200} rows={2}/>
+            <span className="field-hint">{autoReplyDraft.length}/200</span>
+            <span className="field-label">{t("settings.customTheme")}</span>
+            <div className="custom-theme-row">
+              <label>{t("settings.customBg")}<input type="color" value={customBgDraft || "#ff5b91"} onChange={e=>setCustomBgDraft(e.target.value)}/></label>
+              <label>{t("settings.customBg2")}<input type="color" value={customBg2Draft || "#ff9b6a"} onChange={e=>setCustomBg2Draft(e.target.value)}/></label>
+              <span className="custom-theme-preview" style={{ background: `linear-gradient(145deg, ${customBgDraft || "#ff5b91"}, ${customBg2Draft || "#ff9b6a"})` }} aria-hidden="true"/>
+            </div>
+            <label htmlFor="spotify">{t("settings.spotify")}</label>
+            <input id="spotify" type="url" value={spotifyDraft} onChange={e=>setSpotifyDraft(e.target.value)} placeholder="https://open.spotify.com/track/..."/>
+            <button className="primary-button full-button" disabled={busy}>{busy ? t("dash.saving") : t("dash.save")}</button>
           </form>
         </section>
 

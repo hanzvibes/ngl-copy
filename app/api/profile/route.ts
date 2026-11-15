@@ -5,7 +5,7 @@ import { isThemeId } from "@/lib/themes";
 export const runtime = "nodejs";
 const usernamePattern = /^[a-zA-Z0-9_.]{1,24}$/;
 
-const PROFILE_COLUMNS = "username, created_at, bio, avatar_url, theme, prompt, paused, prompt_auto, discoverable, bg_url, instagram, tiktok, x_handle";
+const PROFILE_COLUMNS = "username, created_at, bio, avatar_url, theme, prompt, paused, prompt_auto, discoverable, bg_url, instagram, tiktok, x_handle, blocked_words, friends_only, friends_code, auto_reply, custom_bg, custom_bg2, spotify_url";
 
 function clients() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -50,7 +50,7 @@ export async function GET(request: Request) {
   if (legacy.error) return NextResponse.json({ error: "Profil gagal dimuat." }, { status: 500 });
   return NextResponse.json({
     profile: legacy.data
-      ? { ...legacy.data, bio: "", avatar_url: "", theme: "pink", prompt: "", paused: false, prompt_auto: false, discoverable: false, bg_url: "", instagram: "", tiktok: "", x_handle: "" }
+      ? { ...legacy.data, bio: "", avatar_url: "", theme: "pink", prompt: "", paused: false, prompt_auto: false, discoverable: false, bg_url: "", instagram: "", tiktok: "", x_handle: "", blocked_words: [], friends_only: false, friends_code: "", auto_reply: "", custom_bg: "", custom_bg2: "", spotify_url: "" }
       : null,
   });
 }
@@ -122,7 +122,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Request terlalu besar." }, { status: 413 });
     }
     const body = JSON.parse(rawBody);
-    const updates: { bio?: string; avatar_url?: string; theme?: string; prompt?: string; username?: string; paused?: boolean; prompt_auto?: boolean; discoverable?: boolean; bg_url?: string; instagram?: string; tiktok?: string; x_handle?: string } = {};
+    const updates: { bio?: string; avatar_url?: string; theme?: string; prompt?: string; username?: string; paused?: boolean; prompt_auto?: boolean; discoverable?: boolean; bg_url?: string; instagram?: string; tiktok?: string; x_handle?: string; blocked_words?: string[]; friends_only?: boolean; friends_code?: string; auto_reply?: string; custom_bg?: string; custom_bg2?: string; spotify_url?: string } = {};
     if (typeof body.bio === "string") {
       const bio = body.bio.trim();
       if (bio.length > 160) return NextResponse.json({ error: "Bio maksimal 160 karakter." }, { status: 400 });
@@ -187,6 +187,47 @@ export async function PATCH(request: Request) {
         }
       }
       updates.bg_url = bgUrl;
+    }
+    if (typeof body.blocked_words === "string") {
+      const words = body.blocked_words.split(",").map((w: string) => w.trim().toLowerCase()).filter((w: string) => w !== "").slice(0, 20);
+      if (words.some((w: string) => w.length > 30)) return NextResponse.json({ error: "Satu kata blokir maksimal 30 karakter." }, { status: 400 });
+      updates.blocked_words = words;
+    }
+    if (typeof body.friends_only === "boolean") updates.friends_only = body.friends_only;
+    if (typeof body.friends_code === "string") {
+      const code = body.friends_code.trim().replace(/\s+/g, "");
+      if (code.length > 24) return NextResponse.json({ error: "Kode teman maksimal 24 karakter." }, { status: 400 });
+      updates.friends_code = code;
+    }
+    if (typeof body.auto_reply === "string") {
+      const autoReply = body.auto_reply.trim();
+      if (autoReply.length > 200) return NextResponse.json({ error: "Balasan otomatis maksimal 200 karakter." }, { status: 400 });
+      updates.auto_reply = autoReply;
+    }
+    for (const field of ["custom_bg", "custom_bg2"] as const) {
+      if (typeof body[field] === "string") {
+        const color = body[field].trim();
+        if (color !== "" && !/^#[0-9a-fA-F]{6}$/.test(color)) {
+          return NextResponse.json({ error: "Warna kustom harus format #RRGGBB." }, { status: 400 });
+        }
+        updates[field] = color;
+      }
+    }
+    if (typeof body.spotify_url === "string") {
+      const spotifyUrl = body.spotify_url.trim();
+      if (spotifyUrl !== "" && spotifyUrl.length > 500) {
+        return NextResponse.json({ error: "Link Spotify terlalu panjang." }, { status: 400 });
+      }
+      if (spotifyUrl !== "") {
+        let parsed: URL;
+        try { parsed = new URL(spotifyUrl); } catch {
+          return NextResponse.json({ error: "Link Spotify harus diawali https://." }, { status: 400 });
+        }
+        if (parsed.protocol !== "https:" || !/(^|\.)spotify\.com$/.test(parsed.hostname) && !/(^|\.)open\.spotify\.com$/.test(parsed.hostname)) {
+          return NextResponse.json({ error: "Link Spotify harus dari open.spotify.com." }, { status: 400 });
+        }
+      }
+      updates.spotify_url = spotifyUrl;
     }
     for (const field of ["instagram", "tiktok", "x_handle"] as const) {
       if (typeof body[field] === "string") {

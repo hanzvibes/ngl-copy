@@ -46,6 +46,23 @@ export const THEMES: Record<
   },
 };
 
+export type ThemeDef = { label: string; gradient: string; bg: string; bg2: string; accent: string };
+
+/** A fully custom theme from two hex colours the owner picked. */
+export function customTheme(bg: string, bg2: string): ThemeDef {
+  return {
+    label: "Custom",
+    gradient: `linear-gradient(145deg,${bg},${bg2})`,
+    bg,
+    bg2,
+    accent: bg,
+  };
+}
+
+export function isHexColor(value: string): boolean {
+  return /^#[0-9a-fA-F]{6}$/.test(value);
+}
+
 export function isThemeId(value: unknown): value is ThemeId {
   return typeof value === "string" && (THEME_IDS as string[]).includes(value);
 }

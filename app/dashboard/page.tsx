@@ -2,18 +2,19 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Archive, ArrowLeft, AtSign, Ban, Bell, Check, Copy, Download, Eye, EyeOff, Globe, Heart, Inbox, LogOut, Mail, MessageCircle, Moon, Pin, QrCode, RefreshCw, Reply, Search, Share2, Sun, Trash2, Twitter, UserRound } from "lucide-react";
+import { Archive, ArrowLeft, AtSign, Ban, Bell, Calendar, Check, Copy, Download, Eye, EyeOff, Globe, Heart, ImagePlus, Inbox, LogOut, Mail, MessageCircle, Mic, Moon, Pin, Printer, QrCode, RefreshCw, Reply, Search, Share2, Sun, Trash2, Twitter, UserRound, Users, X } from "lucide-react";
 import QRCode from "qrcode";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { tap } from "@/lib/vibrate";
 import { shareLinkCard } from "@/lib/link-card";
-import { downloadBlob, renderStoryCardBlob, type CardBackground, type CardStyle, type StickerKey } from "@/lib/share-card";
+import { downloadBlob, renderStoryCardBlob, type CardBackground, type CardFont, type CardStyle, type StickerKey } from "@/lib/share-card";
+import { uploadMedia } from "@/lib/media";
 import { THEMES, themeOrDefault, type ThemeId } from "@/lib/themes";
 import { getInitialLang, tr, useLang } from "@/lib/i18n";
 import { getThemeMode, toggleThemeMode, type ThemeMode } from "@/lib/theme";
 import AppTabBar, { type AppTab } from "@/components/AppTabBar";
 
-type Message = { id: number; message: string; created_at: string; reply: string | null; liked: boolean; is_read: boolean; is_public: boolean; archived: boolean; pinned: boolean; reaction: string | null };
+type Message = { id: number; message: string; created_at: string; reply: string | null; liked: boolean; is_read: boolean; is_public: boolean; archived: boolean; pinned: boolean; reaction: string | null; parent_id: number | null; media_url: string | null; media_kind: string | null; reply_media_url: string | null; reply_media_kind: string | null };
 type Profile = { username: string; created_at?: string; bio: string; avatar_url: string; theme: ThemeId; prompt: string; paused: boolean; prompt_auto: boolean; discoverable: boolean; bg_url: string; instagram: string; tiktok: string; x_handle: string };
 type Stats = { total: number; today: number; liked: number; unread: number; byDay: { date: string; count: number }[] };
 type Filter = "all" | "unread" | "liked" | "archived";
@@ -35,6 +36,12 @@ const BACKGROUNDS: { id: CardBackground; labelKey: string }[] = [
   { id: "ocean", labelKey: "story.bgOcean" },
   { id: "neon", labelKey: "story.bgNeon" },
   { id: "paper", labelKey: "story.bgPaper" },
+];
+const FONTS: { id: CardFont; labelKey: string }[] = [
+  { id: "dm", labelKey: "story.fontDm" },
+  { id: "grotesk", labelKey: "story.fontGrotesk" },
+  { id: "caveat", labelKey: "story.fontCaveat" },
+  { id: "playfair", labelKey: "story.fontPlayfair" },
 ];
 const STICKERS: { id: StickerKey; labelKey: string }[] = [
   { id: "none", labelKey: "story.stickerNone" },
@@ -67,6 +74,61 @@ function computeStats(list: Message[]): Stats {
     liked: list.filter((m) => m.liked).length,
     unread: list.filter((m) => !m.is_read).length,
     byDay,
+  };
+}
+
+const STOPWORDS = new Set("yang dan di ke dari apa kamu aku itu ini dengan untuk pada adalah juga atau tapi kok sih dong ya nggak tidak mau bisa kalau saat udah lagi banget the and you your are what why how when this that with for have has do does did is am was were be been me my i it its of to in on at a an so really very just like love".split(" "));
+
+function advancedStats(list: Message[]) {
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 3600_000);
+  const hours = new Array(24).fill(0);
+  const words: Record<string, number> = {};
+  const byDay30: { date: string; count: number }[] = [];
+  for (let i = 29; i >= 0; i--) {
+    const day = new Date(now);
+    day.setUTCHours(0, 0, 0, 0);
+    day.setUTCDate(day.getUTCDate() - i);
+    byDay30.push({ date: day.toISOString().slice(0, 10), count: 0 });
+  }
+  const dayIndex: Record<string, number> = {};
+  byDay30.forEach((d, i) => { dayIndex[d.date] = i; });
+  for (const m of list) {
+    const created = new Date(m.created_at);
+    hours[created.getHours()]++;
+    const dayKey = created.toISOString().slice(0, 10);
+    if (dayIndex[dayKey] !== undefined) byDay30[dayIndex[dayKey]].count++;
+    for (const raw of m.message.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/)) {
+      if (raw.length >= 3 && !STOPWORDS.has(raw)) words[raw] = (words[raw] ?? 0) + 1;
+    }
+  }
+  const busiestHour = hours.indexOf(Math.max(...hours));
+  const topWords = Object.entries(words).sort((a, b) => b[1] - a[1]).slice(0, 12);
+  const weeklyTop = list.filter((m) => new Date(m.created_at) >= weekAgo)
+    .sort((a, b) => Number(b.liked) - Number(a.liked) || +new Date(b.created_at) - +new Date(a.created_at)).slice(0, 3);
+  const memories = list.filter((m) => {
+    const created = new Date(m.created_at);
+    return created.getMonth() === now.getMonth() && created.getDate() === now.getDate() && created.getFullYear() < now.getFullYear();
+  }).slice(0, 3);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthMessages = list.filter((m) => new Date(m.created_at) >= monthStart);
+  const monthByDay: Record<string, number> = {};
+  for (const m of monthMessages) {
+    const key = new Date(m.created_at).toISOString().slice(0, 10);
+    monthByDay[key] = (monthByDay[key] ?? 0) + 1;
+  }
+  const monthTopDay = Object.entries(monthByDay).sort((a, b) => b[1] - a[1])[0];
+  return {
+    busiestHour,
+    busiestHourCount: hours[busiestHour],
+    topWords,
+    byDay30,
+    weeklyTop,
+    memories,
+    monthTotal: monthMessages.length,
+    monthLiked: monthMessages.filter((m) => m.liked).length,
+    monthTopDay: monthTopDay ? { date: monthTopDay[0], count: monthTopDay[1] } : null,
+    monthTop: [...monthMessages].sort((a, b) => Number(b.liked) - Number(a.liked) || +new Date(b.created_at) - +new Date(a.created_at)).slice(0, 3),
   };
 }
 
@@ -106,6 +168,14 @@ export default function DashboardPage() {
   const [storyPreview, setStoryPreview] = useState<{ url: string; blob: Blob; filename: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [cardStyle, setCardStyle] = useState<CardStyle>("ngl");
+  const [cardFont, setCardFont] = useState<CardFont>("dm");
+  const [collabInboxes, setCollabInboxes] = useState<{ owner_id: string; username: string }[]>([]);
+  const [inboxOwner, setInboxOwner] = useState("me");
+  const [recapOpen, setRecapOpen] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
+  const [replyPhoto, setReplyPhoto] = useState<File | null>(null);
+  const [replyPhotoPreview, setReplyPhotoPreview] = useState("");
   const [cardBackground, setCardBackground] = useState<CardBackground>("dark");
   const [sticker, setSticker] = useState<StickerKey>("ask");
   const [showQR, setShowQR] = useState(true);
@@ -120,6 +190,7 @@ export default function DashboardPage() {
   useEffect(() => { setThemeMode(getThemeMode()); }, []);
   const t = (key: string) => tr(lang, key);
   const prevTotalRef = useRef(0);
+  const advanced = advancedStats(messages);
 
   async function request(path: string, init: RequestInit = {}) {
     const supabase = getSupabaseBrowserClient();
@@ -134,9 +205,28 @@ export default function DashboardPage() {
     return data;
   }
 
+  async function loadCollaborators() {
+    try {
+      const data = await request("/api/collaborators");
+      setCollabInboxes(data.inboxOf || []);
+    } catch { setCollabInboxes([]); }
+  }
+
+  async function loadInboxFor(owner: string) {
+    try {
+      const inboxData = await request(`/api/inbox${owner !== "me" ? `?as_owner=${encodeURIComponent(owner)}` : ""}`);
+      const nextMessages = (inboxData.messages || []) as Message[];
+      setMessages(nextMessages);
+      setStats(inboxData.stats || computeStats(nextMessages));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Data gagal dimuat.");
+    }
+  }
+
   async function loadPrivateData() {
     try {
       const [profileData, inboxData] = await Promise.all([request("/api/profile"), request("/api/inbox")]);
+      void loadCollaborators();
       const nextProfile = profileData.profile as Profile | null;
       setProfile(nextProfile);
       if (nextProfile) {
@@ -246,7 +336,7 @@ export default function DashboardPage() {
     finally { setBusy(false); }
   }
 
-  async function updateMessage(id: number, patch: { reply?: string; liked?: boolean; is_read?: boolean; is_public?: boolean; archived?: boolean; pinned?: boolean; reaction?: string }) {
+  async function updateMessage(id: number, patch: { reply?: string; liked?: boolean; is_read?: boolean; is_public?: boolean; archived?: boolean; pinned?: boolean; reaction?: string; reply_media_url?: string | null }) {
     setError(""); setNotice("");
     try {
       const data = await request("/api/inbox", { method: "PATCH", body: JSON.stringify({ id, ...patch }) });
@@ -259,6 +349,39 @@ export default function DashboardPage() {
         setNotice(patch.reply === "" ? "Balasan dihapus." : "Balasan tersimpan.");
       }
     } catch (e) { setError(e instanceof Error ? e.message : "Pesan gagal disimpan."); }
+  }
+
+  async function saveReplyWithPhoto(message: Message) {
+    if (!profile) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      let mediaUrl = message.reply_media_url ?? null;
+      if (replyPhoto) {
+        mediaUrl = await uploadMedia(replyPhoto, "image");
+      }
+      await updateMessage(message.id, { reply: replyDrafts[message.id] ?? "", reply_media_url: mediaUrl });
+      setReplyPhoto(null); setReplyPhotoPreview("");
+      setReplyingId(null);
+      setNotice(t("dash.replySaved"));
+    } catch {
+      setError("Foto balasan gagal diunggah.");
+    } finally { setBusy(false); }
+  }
+
+  async function savePoll(messageId: number) {
+    const question = pollQuestion.trim();
+    const options = pollOptions.map((o) => o.trim()).filter(Boolean);
+    if (question.length < 1 || options.length < 2) {
+      setError(t("dash.pollNeeds"));
+      return;
+    }
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await request("/api/polls", { method: "POST", body: JSON.stringify({ message_id: messageId, question, options }) });
+      setPollQuestion(""); setPollOptions(["", ""]);
+      setNotice(t("dash.pollSaved"));
+    } catch (e) { setError(e instanceof Error ? e.message : "Polling gagal disimpan."); }
+    finally { setBusy(false); }
   }
 
   async function deleteMessage(id: number) {
@@ -344,6 +467,7 @@ export default function DashboardPage() {
         theme: profile.theme,
         style: cardStyle,
         background: cardBackground,
+        font: cardFont,
         sticker: stickerText(),
         showQR,
         hideUsername,
@@ -410,7 +534,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!storyPreview || !storyMessage) return;
     void renderPreview(storyMessage);
-  }, [cardStyle, cardBackground, sticker, showQR, hideUsername, showReply]);
+  }, [cardStyle, cardBackground, cardFont, sticker, showQR, hideUsername, showReply]);
 
   async function shareLink() {
     tap();
@@ -520,6 +644,15 @@ export default function DashboardPage() {
           <div className="stat-card"><strong>{stats.unread}</strong><span>{t("dash.statUnread")}</span></div>
         </section>
 
+        {advanced.weeklyTop.length > 0 && <section className="dashboard-panel ngl-panel"><h3>{t("dash.weeklyTop")}</h3><div className="weekly-list">{advanced.weeklyTop.map((m) => <div className="weekly-item" key={m.id}><p>{m.message}</p><div className="weekly-meta"><span>{m.liked ? "❤️ " : ""}{new Date(m.created_at).toLocaleDateString()}</span><button className="secondary-button" onClick={()=>void shareMessage(m)}><Share2 size={14}/> {t("dash.shareStory")}</button></div></div>)}</div></section>}
+        <section className="dashboard-panel ngl-panel"><h3>{t("dash.deepStats")}</h3>
+          <p className="privacy-note">{t("dash.busiestHour")}: {String(advanced.busiestHour).padStart(2, "0")}:00–{String((advanced.busiestHour + 1) % 24).padStart(2, "0")}:00 ({advanced.busiestHourCount})</p>
+          {advanced.topWords.length > 0 && <div className="word-cloud" aria-label={t("dash.topWords")}>{advanced.topWords.map(([word, count]) => <span key={word} style={{ fontSize: `${12 + Math.min(14, count * 3)}px` }}>{word}</span>)}</div>}
+          {advanced.byDay30.some((d) => d.count > 0) && <div className="chart-bars month-chart" role="img" aria-label={t("dash.monthTrend")}>{advanced.byDay30.map((d) => <div className="chart-bar-col" key={d.date} aria-hidden="true"><div className="chart-bar" style={{ height: `${Math.max(2, Math.round((d.count / Math.max(1, ...advanced.byDay30.map((x) => x.count))) * 48))}px` }} title={`${d.date}: ${d.count}`}/></div>)}</div>}
+          <button className="secondary-button" onClick={()=>setRecapOpen(true)}><Calendar size={15}/> {t("dash.monthRecap")}</button>
+        </section>
+        {advanced.memories.length > 0 && <section className="dashboard-panel ngl-panel"><h3>{t("dash.memories")}</h3><div className="weekly-list">{advanced.memories.map((m) => <div className="weekly-item" key={m.id}><p>{m.message}</p><span className="privacy-note">{new Date(m.created_at).toLocaleDateString()} — {new Date().getFullYear() - new Date(m.created_at).getFullYear()} {t("dash.memoryAgo")}</span></div>)}</div></section>}
+
         {stats.byDay.length > 0 && <section className="dashboard-panel week-chart ngl-panel"><h3>{t("dash.weekTitle")}</h3><div className="chart-bars" role="img" aria-label={`${t("dash.weekTitle")}: ${chartSummary}`}>{stats.byDay.map((d) => <div className="chart-bar-col" key={d.date} aria-hidden="true"><div className="chart-bar" style={{ height: `${Math.max(4, Math.round((d.count / maxDayCount) * 72))}px` }} title={`${d.date}: ${d.count}`}/><span>{new Date(`${d.date}T00:00:00Z`).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { weekday: "short" })}</span><strong>{d.count}</strong></div>)}</div></section>}</div><div className="dash-tab-panel" data-panel="inbox">
 
 
@@ -527,6 +660,7 @@ export default function DashboardPage() {
           <div className="inbox-tools">
             <div className="search-box"><Search size={15}/><input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder={t("dash.search")} aria-label={t("dash.search")}/></div>
             <button className="secondary-button" onClick={exportInbox}><Download size={15}/> {t("dash.export")}</button>
+            {collabInboxes.length > 0 && <select className="card-style-select" value={inboxOwner} onChange={e=>{ setInboxOwner(e.target.value); void loadInboxFor(e.target.value); }} aria-label={t("dash.inboxOwner")}><option value="me">{t("dash.myInbox")}</option>{collabInboxes.map((c) => <option key={c.owner_id} value={c.owner_id}>@{c.username}</option>)}</select>}
           </div>
           <div className="filter-tabs" role="tablist" aria-label="Filter messages">
             {(["all", "unread", "liked", "archived"] as Filter[]).map((f) => (
@@ -538,17 +672,18 @@ export default function DashboardPage() {
           {messages.length === 0 ? <div className="dashboard-panel empty-inbox"><div className="empty-icon"><Mail size={22}/></div><h3>{t("dash.emptyTitle")}</h3><p>{t("dash.emptyDesc")}</p><button className="secondary-button" onClick={copyLink}><Copy size={15}/> {t("dash.shareLink")}</button></div> :
           filteredMessages.length === 0 ? <div className="dashboard-panel empty-inbox"><div className="empty-icon"><Mail size={22}/></div><h3>{t("dash.noFilterTitle")}</h3><p>{filter === "unread" ? t("dash.noUnread") : filter === "liked" ? t("dash.noLiked") : filter === "archived" ? t("dash.noArchived") : t("dash.emptyDesc")}</p></div> :
             <div className="inbox-list">{filteredMessages.map(message=><article className={`inbox-message${message.is_read ? " is-read" : ""}${message.archived ? " is-archived" : ""}`} key={message.id}>
-              <div className="message-meta"><span><span className="anonymous-dot"/> ANONYMOUS</span><time dateTime={message.created_at}>{new Date(message.created_at).toLocaleString()}</time>{message.is_public && <span className="public-badge">{t("dash.public").toUpperCase()}</span>}{message.pinned && <span className="public-badge">PINNED</span>}
+              <div className="message-meta"><span><span className="anonymous-dot"/> ANONYMOUS</span><time dateTime={message.created_at}>{new Date(message.created_at).toLocaleString()}</time>{message.parent_id ? <span className="followup-badge">{t("dash.followup")}</span> : null}{message.is_public && <span className="public-badge">{t("dash.public").toUpperCase()}</span>}{message.pinned && <span className="public-badge">PINNED</span>}
                 <button className={`icon-mini${message.liked ? " liked" : ""}`} onClick={()=>{tap();void updateMessage(message.id, { liked: !message.liked });}} aria-label={message.liked ? "Unlike message" : "Like message"}><Heart size={15} fill={message.liked ? "currentColor" : "none"}/></button>
                 <button className="icon-mini" onClick={()=>void updateMessage(message.id, { is_read: !message.is_read })} aria-label={message.is_read ? "Mark as unread" : "Mark as read"}>{message.is_read ? <EyeOff size={15}/> : <Eye size={15}/>}</button>
                 <button className="delete-message" onClick={()=>void deleteMessage(message.id)} aria-label="Delete message"><Trash2 size={15}/></button>
               </div>
               <p>{message.message}</p>
+              {message.media_kind === "audio" && message.media_url ? <audio className="voice-player" controls src={message.media_url}/> : null}
               {message.reaction && <span className="message-reaction">{message.reaction}</span>}
-              {message.reply && <div className="message-reply"><span>{t("dash.yourReply")}</span><p>{message.reply}</p></div>}
+              {message.reply && <div className="message-reply"><span>{t("dash.yourReply")}</span><p>{message.reply}</p>{message.reply_media_url && <img className="reply-photo" src={message.reply_media_url} alt="" loading="lazy"/>}</div>}
               <div className="reaction-row">{REACTIONS.map((emoji) => <button key={emoji} className={`reaction-button${message.reaction === emoji ? " selected" : ""}`} onClick={()=>void updateMessage(message.id, { reaction: message.reaction === emoji ? "" : emoji })} aria-label={`React ${emoji}`}>{emoji}</button>)}</div>
               <div className="message-actions">
-                <button className="action-button" onClick={()=>{ setReplyingId(replyingId === message.id ? null : message.id); setReplyDrafts((d) => ({ ...d, [message.id]: d[message.id] ?? message.reply ?? "" })); }}><Reply size={14}/> {message.reply ? t("dash.editReply") : t("dash.reply")}</button>
+                <button className="action-button" onClick={()=>{ setReplyingId(replyingId === message.id ? null : message.id); setReplyDrafts((d) => ({ ...d, [message.id]: d[message.id] ?? message.reply ?? "" })); setPollQuestion(""); setPollOptions(["", ""]); setReplyPhoto(null); setReplyPhotoPreview(""); }}><Reply size={14}/> {message.reply ? t("dash.editReply") : t("dash.reply")}</button>
                 <button className="action-button" disabled={sharingId === message.id} onClick={()=>void shareMessage(message)}><Share2 size={14}/> {sharingId === message.id ? t("dash.making") : t("dash.shareStory")}</button>
                 <button className={`action-button${message.is_public ? " active" : ""}`} disabled={!message.reply} title={message.reply ? "Show this answer on your public link" : "Reply first to publish"} onClick={()=>void updateMessage(message.id, { is_public: !message.is_public })}><Globe size={14}/> {message.is_public ? t("dash.public") : t("dash.publish")}</button>
                 <button className="action-button" onClick={()=>void updateMessage(message.id, { pinned: !message.pinned })}><Pin size={14}/> {message.pinned ? t("dash.unpin") : t("dash.pin")}</button>
@@ -557,10 +692,20 @@ export default function DashboardPage() {
               </div>
               {replyingId === message.id && <div className="reply-editor">
                 <textarea value={replyDrafts[message.id] ?? ""} onChange={e=>setReplyDrafts((d) => ({ ...d, [message.id]: e.target.value.slice(0, 500) }))} placeholder="Write your reply..." maxLength={500} rows={3}/>
+                {replyPhotoPreview && <div className="reply-photo-preview"><img src={replyPhotoPreview} alt=""/><button type="button" className="secondary-button" onClick={()=>{ setReplyPhoto(null); setReplyPhotoPreview(""); }}>{t("dash.removePhoto")}</button></div>}
                 <div className="reply-editor-actions">
-                  <button className="primary-button" disabled={busy} onClick={()=>void updateMessage(message.id, { reply: replyDrafts[message.id] ?? "" })}>{t("dash.saveReply")}</button>
+                  <label className="secondary-button photo-upload"><ImagePlus size={15}/> {t("dash.addPhoto")}<input type="file" accept="image/*" hidden onChange={(e)=>{ const f = e.target.files?.[0]; if (!f) return; setReplyPhoto(f); setReplyPhotoPreview(URL.createObjectURL(f)); }}/></label>
+                  <button className="primary-button" disabled={busy} onClick={()=>void saveReplyWithPhoto(message)}>{t("dash.saveReply")}</button>
                   {message.reply && <button className="secondary-button" onClick={()=>void updateMessage(message.id, { reply: "" })}>{t("dash.deleteReply")}</button>}
-                  <button className="secondary-button" onClick={()=>setReplyingId(null)}>{t("dash.cancel")}</button>
+                  <button className="secondary-button" onClick={()=>{ setReplyingId(null); setReplyPhoto(null); setReplyPhotoPreview(""); }}>{t("dash.cancel")}</button>
+                </div>
+                <div className="poll-editor">
+                  <span className="field-label">{t("dash.pollTitle")}</span>
+                  <input value={pollQuestion} onChange={e=>setPollQuestion(e.target.value.slice(0, 140))} placeholder={t("dash.pollQuestionPh")} maxLength={140}/>
+                  {pollOptions.map((opt, i) => <input key={i} value={opt} onChange={e=>setPollOptions((o) => o.map((v, j) => j === i ? e.target.value.slice(0, 60) : v))} placeholder={`${t("dash.pollOption")} ${i + 1}`} maxLength={60}/>)}
+                  {pollOptions.length < 4 && <button type="button" className="secondary-button" onClick={()=>setPollOptions((o) => [...o, ""])}>+ {t("dash.pollOption")}</button>}
+                  <button type="button" className="secondary-button" disabled={busy || !message.reply} onClick={()=>void savePoll(message.id)}>{t("dash.savePoll")}</button>
+                  {!message.reply && <span className="privacy-note">{t("dash.pollNeedsReply")}</span>}
                 </div>
               </div>}
             </article>)}</div>}
@@ -569,6 +714,22 @@ export default function DashboardPage() {
     </section>
     {profile && <AppTabBar active={tab} unread={stats.unread} lang={lang} onTab={setTab} />}
     <footer className="message-footer">{t("dash.privacy")}</footer>
+    {recapOpen && <div className="story-modal recap-modal" role="dialog" aria-modal="true" aria-label={t("dash.monthRecap")} onClick={(e)=>{ if (e.target === e.currentTarget) setRecapOpen(false); }}>
+      <div className="story-modal-card"><div className="sheet-handle" aria-hidden="true"/>
+        <h2>{t("dash.monthRecap")}</h2>
+        <p>{new Date().toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}</p>
+        <div className="stats-grid recap-stats">
+          <div className="stat-card"><strong>{advanced.monthTotal}</strong><span>{t("dash.statTotal")}</span></div>
+          <div className="stat-card"><strong>{advanced.monthLiked}</strong><span>{t("dash.statLiked")}</span></div>
+          <div className="stat-card"><strong>{advanced.monthTopDay ? advanced.monthTopDay.count : 0}</strong><span>{advanced.monthTopDay ? new Date(`${advanced.monthTopDay.date}T00:00:00Z`).toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { day: "numeric", month: "short" }) : "—"}</span></div>
+        </div>
+        {advanced.monthTop.length > 0 && <div className="weekly-list">{advanced.monthTop.map((m) => <div className="weekly-item" key={m.id}><p>{m.message}</p><span className="privacy-note">{m.liked ? "❤️ " : ""}{new Date(m.created_at).toLocaleDateString()}</span></div>)}</div>}
+        <div className="story-modal-actions">
+          <button className="primary-button" onClick={()=>window.print()}><Printer size={16}/> {t("dash.printRecap")}</button>
+          <button className="secondary-button" onClick={()=>setRecapOpen(false)}>{t("dash.close")}</button>
+        </div>
+      </div>
+    </div>}
     {storyPreview && <div className="story-modal" role="dialog" aria-modal="true" aria-label={t("dash.storyPreview")} onClick={(e)=>{ if (e.target === e.currentTarget) closeStoryPreview(); }}>
       <div className="story-modal-card"><div className="sheet-handle" aria-hidden="true"/>
         <h2>{t("dash.storyPreview")}</h2>
@@ -578,6 +739,7 @@ export default function DashboardPage() {
           <div className="studio-group"><span>{t("story.template")}</span><div className="studio-pills">{TEMPLATES.map((tpl) => <button key={tpl.id} type="button" className={`studio-pill${cardStyle === tpl.id ? " active" : ""}`} onClick={()=>setCardStyle(tpl.id)}>{t(tpl.labelKey)}</button>)}</div></div>
           <div className="studio-group"><span>{t("story.background")}</span><div className="studio-pills">{BACKGROUNDS.map((bg) => <button key={bg.id} type="button" className={`studio-pill${cardBackground === bg.id ? " active" : ""}`} onClick={()=>setCardBackground(bg.id)}>{t(bg.labelKey)}</button>)}</div></div>
           <div className="studio-group"><span>{t("story.sticker")}</span><select className="studio-select" value={sticker} onChange={e=>setSticker(e.target.value as StickerKey)} aria-label={t("story.sticker")}>{STICKERS.map((st) => <option key={st.id} value={st.id}>{t(st.labelKey)}</option>)}</select></div>
+          <div className="studio-group"><span>{t("story.font")}</span><select className="studio-select" value={cardFont} onChange={e=>setCardFont(e.target.value as CardFont)} aria-label={t("story.font")}>{FONTS.map((f) => <option key={f.id} value={f.id}>{t(f.labelKey)}</option>)}</select></div>
           <div className="studio-toggles">
             <label className="studio-toggle"><input type="checkbox" checked={showQR} onChange={e=>setShowQR(e.target.checked)}/> {t("story.showQR")}</label>
             <label className="studio-toggle"><input type="checkbox" checked={hideUsername} onChange={e=>setHideUsername(e.target.checked)}/> {t("story.hideUsername")}</label>
