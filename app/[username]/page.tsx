@@ -9,6 +9,7 @@ import { getDailyQuestion, pickRandomQuestion } from "@/lib/questions";
 import { THEMES, themeOrDefault, type ThemeId } from "@/lib/themes";
 import { tr, useLang } from "@/lib/i18n";
 import { getThemeMode, toggleThemeMode, type ThemeMode } from "@/lib/theme";
+import { tap } from "@/lib/vibrate";
 
 type PublicProfile = { bio: string; avatar_url: string; theme: ThemeId; prompt: string; prompt_auto: boolean; paused: boolean; bg_url: string; instagram: string; tiktok: string; x_handle: string };
 type Answer = { id: number; message: string; reply: string; created_at: string };
@@ -66,7 +67,7 @@ export default function ProfilePage() {
       const response = await fetch("/api/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,message:message.trim(),turnstile_token: tokenEl?.value || undefined})});
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Couldn't send your message.");
-      setSent(true); setMessage("");
+      tap(); setSent(true); setMessage("");
     } catch (err) { setError(err instanceof Error ? err.message : "Something went wrong. Try again."); }
     finally { setBusy(false); }
   }

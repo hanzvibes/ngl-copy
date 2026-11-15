@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Archive, ArrowLeft, AtSign, Ban, Bell, Check, Copy, Download, Eye, EyeOff, Globe, Heart, Inbox, LogOut, Mail, MessageCircle, Moon, Pin, QrCode, RefreshCw, Reply, Search, Share2, Sun, Trash2, Twitter, UserRound } from "lucide-react";
 import QRCode from "qrcode";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { tap } from "@/lib/vibrate";
 import { shareLinkCard } from "@/lib/link-card";
 import { downloadBlob, renderStoryCardBlob, type CardStyle } from "@/lib/share-card";
 import { THEMES, themeOrDefault, type ThemeId } from "@/lib/themes";
@@ -340,6 +341,7 @@ export default function DashboardPage() {
   }, [storyPreview]);
 
   async function shareLink() {
+    tap();
     if (!profile) return;
     setSharingLink(true); setError(""); setNotice("");
     try {
@@ -358,6 +360,7 @@ export default function DashboardPage() {
 
   async function copyLink() {
     if (!profile) return;
+    tap();
     const link = `${window.location.origin}/${profile.username}`;
     try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500); }
     catch { setError("Gagal menyalin link. Salin manual: " + link); }
@@ -467,7 +470,7 @@ export default function DashboardPage() {
           filteredMessages.length === 0 ? <div className="dashboard-panel empty-inbox"><div className="empty-icon"><Mail size={22}/></div><h3>{t("dash.noFilterTitle")}</h3><p>{filter === "unread" ? t("dash.noUnread") : filter === "liked" ? t("dash.noLiked") : filter === "archived" ? t("dash.noArchived") : t("dash.emptyDesc")}</p></div> :
             <div className="inbox-list">{filteredMessages.map(message=><article className={`inbox-message${message.is_read ? " is-read" : ""}${message.archived ? " is-archived" : ""}`} key={message.id}>
               <div className="message-meta"><span><span className="anonymous-dot"/> ANONYMOUS</span><time dateTime={message.created_at}>{new Date(message.created_at).toLocaleString()}</time>{message.is_public && <span className="public-badge">{t("dash.public").toUpperCase()}</span>}{message.pinned && <span className="public-badge">PINNED</span>}
-                <button className={`icon-mini${message.liked ? " liked" : ""}`} onClick={()=>void updateMessage(message.id, { liked: !message.liked })} aria-label={message.liked ? "Unlike message" : "Like message"}><Heart size={15} fill={message.liked ? "currentColor" : "none"}/></button>
+                <button className={`icon-mini${message.liked ? " liked" : ""}`} onClick={()=>{tap();void updateMessage(message.id, { liked: !message.liked });}} aria-label={message.liked ? "Unlike message" : "Like message"}><Heart size={15} fill={message.liked ? "currentColor" : "none"}/></button>
                 <button className="icon-mini" onClick={()=>void updateMessage(message.id, { is_read: !message.is_read })} aria-label={message.is_read ? "Mark as unread" : "Mark as read"}>{message.is_read ? <EyeOff size={15}/> : <Eye size={15}/>}</button>
                 <button className="delete-message" onClick={()=>void deleteMessage(message.id)} aria-label="Delete message"><Trash2 size={15}/></button>
               </div>

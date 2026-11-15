@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -20,9 +21,9 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#0b0a10",
+  themeColor: "#000000",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body><Script id="theme-init" strategy="beforeInteractive">{`try{if(localStorage.getItem('ngl-theme')==='light'){document.documentElement.dataset.theme='light'}if(localStorage.getItem('ngl-lang')==='id'){document.documentElement.lang='id'}}catch(e){}`}</Script>{children}</body></html>;
+  return <html lang="en"><body><Script id="theme-init" strategy="beforeInteractive">{`try{if(localStorage.getItem('ngl-theme')==='light'){document.documentElement.dataset.theme='light'}if(localStorage.getItem('ngl-lang')==='id'){document.documentElement.lang='id'}}catch(e){}`}</Script><ServiceWorkerRegister />{children}</body></html>;
 }

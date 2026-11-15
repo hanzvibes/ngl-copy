@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowUpRight, Check, Copy, Heart, LockKeyhole, MessageCircle, Moon, Sparkles, Sun, Zap } from "lucide-react";
 import { tr, useLang } from "@/lib/i18n";
 import { GAMES } from "@/lib/questions";
+import { tap } from "@/lib/vibrate";
 import { getThemeMode, toggleThemeMode, type ThemeMode } from "@/lib/theme";
 
 export default function Home() {
@@ -58,7 +59,7 @@ export default function Home() {
       <p className="games-sub">{t("games.sub")}</p>
       <div className="games-grid">
         {GAMES.map((g) => (
-          <button key={g.id} type="button" className={`game-card${openGame === g.id ? " open" : ""}`} onClick={() => setOpenGame(openGame === g.id ? null : g.id)} aria-expanded={openGame === g.id}>
+          <button key={g.id} type="button" className={`game-card${openGame === g.id ? " open" : ""}`} onClick={() => { tap(); setOpenGame(openGame === g.id ? null : g.id); }} aria-expanded={openGame === g.id}>
             <div className="game-gradient" style={{ background: g.gradient }} aria-hidden="true"/>
             <h3>{g.title}</h3>
             <p>{g.examples[0]}</p>

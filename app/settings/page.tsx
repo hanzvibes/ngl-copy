@@ -3,12 +3,13 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, LogOut, Moon, Palette, RefreshCw, Sun } from "lucide-react";
+import { ArrowLeft, Check, Download, LogOut, Moon, Palette, RefreshCw, Sun } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { THEMES, THEME_IDS, themeOrDefault, type ThemeId } from "@/lib/themes";
 import { tr, useLang } from "@/lib/i18n";
 import { getThemeMode, toggleThemeMode, type ThemeMode } from "@/lib/theme";
 import AppTabBar from "@/components/AppTabBar";
+import InstallAppButton from "@/components/InstallAppButton";
 
 type Profile = { username: string; created_at?: string; bio: string; avatar_url: string; theme: ThemeId; prompt: string; paused: boolean; prompt_auto: boolean; discoverable: boolean; bg_url: string; instagram: string; tiktok: string; x_handle: string };
 type Block = { ip_hash: string; created_at: string };
@@ -183,6 +184,10 @@ export default function SettingsPage() {
           <h3>{t("dash.blockedTitle")} <span>({blocks.length})</span></h3>
           {blocks.length === 0 ? <p className="privacy-note">{t("dash.noBlocked")}</p> :
             <ul className="blocked-list">{blocks.map((b) => <li key={b.ip_hash}><code>{b.ip_hash.slice(0, 12)}…</code><span>{new Date(b.created_at).toLocaleDateString()}</span><button className="secondary-button" onClick={()=>void unblock(b.ip_hash)}>{t("dash.unblock")}</button></li>)}</ul>}
+        </section>
+        <section className="dashboard-panel ngl-panel">
+          <div className="panel-heading"><div className="dashboard-icon"><Download size={20}/></div><div><h2>{t("settings.installTitle")}</h2><p>{t("settings.installDesc")}</p></div></div>
+          <InstallAppButton lang={lang} />
         </section>
         <button className="logout-button" onClick={signOut}><LogOut size={15}/> {t("dash.signOut")}</button>
       </>}
