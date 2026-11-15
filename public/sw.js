@@ -15,6 +15,38 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Web Push: a new anonymous message arrives → show a notification that
+// opens the dashboard when tapped. Payloads are sent by /api/messages
+// through lib/push-server.ts.
+self.addEventListener("push", (event) => {
+  let data = { title: "ngl.", body: "Ada pesan anonim baru." };
+  try {
+    if (event.data) data = { ...data, ...event.data.json() };
+  } catch {}
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      tag: "ngl-message",
+      data: { url: data.url || "/dashboard" },
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || "/dashboard";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ("focus" in client) return client.focus();
+      }
+      return self.clients.openWindow(url);
+    })
+  );
+});
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;

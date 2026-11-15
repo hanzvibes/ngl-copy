@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 /* Spacing scale (Impeccable layout, 4px base): tight 4-8, default 12-16, generous 24-32, sections 48-96. Groups are tight inside, generous apart; a label sits 6px from its field and 16px from the previous field; a heading sits closer to what follows than to what precedes. */
@@ -341,3 +341,104 @@ html[data-theme="light"] .studio-pill{background:#fff;border-color:rgba(36,17,26
 html[data-theme="light"] .studio-pill.active{border-color:#ff5e8a;background:rgba(255,94,138,.1);color:#d6336c}
 html[data-theme="light"] .studio-select{background:#fff;border-color:rgba(36,17,26,.14);color:#24111a}
 html[data-theme="light"] .studio-toggle{color:#24111a}
+
+/* --- Batch 4: voice, polls, likes, follow-ups, weekly recap, memories --- */
+.busy-badge{display:inline-flex;align-items:center;gap:6px;margin:10px 0 0;padding:7px 12px;border-radius:999px;background:rgba(255,94,138,.16);border:1px solid rgba(255,94,138,.4);color:#ff8fb3;font-size:12px;font-weight:700;animation:pulse 1.8s infinite}
+.social-rows{display:flex;flex-direction:column;gap:8px;margin:16px 0}
+.social-row{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(25,21,32,.8);color:#f3eaf4;font-size:13px}
+.social-row span{color:#a59baa}
+.social-row strong{margin-left:auto;font-weight:600}
+.spotify-embed{margin:16px 0;border-radius:12px;overflow:hidden}
+.spotify-embed iframe{display:block;border:0}
+.voice-box{margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,.09)}
+.voice-button{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(255,255,255,.14);background:#211a28;color:#f3eaf4;border-radius:999px;padding:11px 16px;font-size:13px;font-weight:600;cursor:pointer}
+.voice-recording{display:flex;align-items:center;gap:12px;font-size:14px;font-weight:600}
+.rec-dot{width:10px;height:10px;border-radius:50%;background:#ff5e5e;animation:pulse 1s infinite}
+.voice-preview{display:flex;flex-direction:column;gap:12px}
+.voice-preview audio{width:100%}
+.voice-preview-actions{display:flex;gap:8px;flex-wrap:wrap}
+.voice-player{width:100%;margin:8px 0}
+.poll-box{margin-top:12px;padding:12px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09)}
+.poll-question{font-weight:700;font-size:13px;margin-bottom:10px}
+.poll-option{position:relative;display:flex;align-items:center;gap:8px;width:100%;overflow:hidden;border:1px solid rgba(255,255,255,.13);background:transparent;color:#f3eaf4;border-radius:9px;padding:10px 12px;font-size:13px;cursor:pointer;margin-bottom:6px;text-align:left}
+.poll-option .poll-bar{position:absolute;top:0;bottom:0;left:0;background:rgba(255,94,138,.22);z-index:0}
+.poll-option .poll-label,.poll-option .poll-pct{position:relative;z-index:1}
+.poll-option .poll-pct{margin-left:auto;font-weight:700;color:#ff8fb3}
+.poll-option.voted{border-color:#ff5e8a}
+.poll-total{font-size:11px;color:#a59baa}
+.answer-actions{display:flex;align-items:center;gap:10px;margin-top:12px}
+.like-button{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.13);background:transparent;color:#f3eaf4;border-radius:999px;padding:8px 13px;font-size:12px;font-weight:600;cursor:pointer}
+.like-button.liked{border-color:#ff5e8a;color:#ff8fb3}
+.followup-button{border:0;background:transparent;color:#a59baa;font-size:12px;font-weight:600;cursor:pointer;padding:8px}
+.followup-sent{font-size:12px;color:#76d9a3;font-weight:600}
+.followup-form{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+.followup-form textarea{width:100%;border:1px solid rgba(255,255,255,.13);border-radius:10px;background:#211a28;color:#f3eaf4;padding:10px 12px;font-size:13px;resize:vertical}
+.followups-list{margin-top:12px;display:flex;flex-direction:column;gap:10px;border-left:2px solid rgba(255,94,138,.4);padding-left:12px}
+.followup-badge{font-size:10px;font-weight:700;letter-spacing:1px;color:#ff91b3;border:1px solid rgba(255,94,138,.4);border-radius:999px;padding:3px 8px}
+.reply-photo{display:block;max-width:100%;border-radius:10px;margin-top:10px}
+.reply-photo-preview{display:flex;align-items:center;gap:10px;margin:10px 0}
+.reply-photo-preview img{max-width:120px;max-height:120px;border-radius:10px}
+.photo-upload{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.poll-editor{display:flex;flex-direction:column;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.09)}
+.poll-editor input{width:100%;border:1px solid rgba(255,255,255,.13);border-radius:10px;background:#211a28;color:#f3eaf4;padding:10px 12px;font-size:13px}
+.weekly-list{display:flex;flex-direction:column;gap:10px}
+.weekly-item{border:1px solid rgba(255,255,255,.09);border-radius:12px;padding:12px 14px;background:rgba(255,255,255,.03)}
+.weekly-item p{margin:0 0 8px;font-size:14px;line-height:1.6}
+.weekly-meta{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.weekly-meta span{font-size:11px;color:#a59baa}
+.word-cloud{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;margin:12px 0}
+.word-cloud span{color:#ff8fb3;font-weight:700;line-height:1}
+.month-chart{margin:12px 0}
+.custom-theme-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.custom-theme-row label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#c6bfcc;font-weight:600}
+.custom-theme-row input[type="color"]{width:52px;height:36px;border:1px solid rgba(255,255,255,.14);border-radius:8px;background:transparent;padding:2px;cursor:pointer}
+.custom-theme-preview{width:52px;height:36px;border-radius:8px;margin-top:18px}
+.recap-stats{margin-bottom:12px}
+
+/* Monthly recap prints as a clean PDF (only the recap card). */
+@media print{
+  body{background:#fff !important}
+  body *{visibility:hidden}
+  .recap-modal,.recap-modal *{visibility:visible}
+  .recap-modal{position:fixed;inset:0;background:#fff !important;display:block !important}
+  .recap-modal .story-modal-card{box-shadow:none;max-height:none;overflow:visible;background:#fff !important;color:#111 !important}
+  .recap-modal .sheet-handle,.recap-modal .story-modal-actions{display:none !important}
+  .recap-modal .stat-card{background:#f3eaf4 !important;color:#111 !important}
+  .recap-modal .weekly-item{background:#fff !important;border-color:#ddd !important}
+}
+
+/* --- Minim scroll di HP: rasa aplikasi native --- */
+@media (max-width:600px){
+  /* App shell: satu viewport — header di atas, tab bar di bawah, hanya
+     konten yang scroll di dalam. */
+  .dashboard-page{min-height:100dvh;height:100dvh;overflow:hidden}
+  .dashboard-shell{flex:1;min-height:0;overflow-y:auto;margin:16px auto 0;padding:0 0 16px;-webkit-overflow-scrolling:touch}
+  .message-footer{display:none}
+  /* Beranda: ringkas — judul kecil, tanpa subjudul, statistik sebaris. */
+  .dashboard-heading{margin-bottom:16px}
+  .dashboard-heading h1{font-size:32px;letter-spacing:-1.5px;margin:8px 0 0}
+  .dashboard-heading p{display:none}
+  .profile-panel{padding:14px;margin-bottom:16px}
+  .profile-summary{margin-bottom:16px}
+  .stats-grid{grid-template-columns:repeat(4,1fr);gap:8px}
+  .stat-card{padding:12px 6px}
+  .stat-card strong{font-size:20px}
+  .stat-card span{font-size:10px}
+  .week-chart{display:none}
+  .inbox-section{margin-top:16px}
+  /* Inbox: judul + filter nempel di atas saat list di-scroll. */
+  .inbox-title{position:sticky;top:0;z-index:5;background:rgba(12,10,17,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:6px 0 8px;margin-bottom:8px}
+  .inbox-tools{position:sticky;top:48px;z-index:5;background:rgba(12,10,17,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:8px 0}
+  .filter-tabs{position:sticky;top:104px;z-index:5;background:rgba(12,10,17,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding-bottom:8px}
+  /* Halaman kirim: hero ringkas supaya form muat satu layar. */
+  .send-panel{margin-top:24px}
+  .send-avatar{width:60px;height:60px;margin-bottom:16px}
+  .send-panel h1{font-size:32px;margin:8px 0}
+  .send-prompt{font-size:19px;margin-bottom:12px}
+  .send-bio{margin-bottom:20px}
+  .send-form textarea{min-height:110px}
+  .answers-section{margin-top:32px}
+  /* Landing: hero lebih pendek di HP. */
+  .hero{padding-top:32px;padding-bottom:48px;gap:24px}
+  .hero h1{font-size:52px}
+}
