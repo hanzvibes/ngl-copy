@@ -270,3 +270,57 @@ html[data-theme="light"] .games-sub{color:#5c5260}
 
 @media(max-width:850px){.games-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){.games{padding:40px 0 56px}.games-grid{grid-template-columns:1fr}.ngl-panel,.ngl-card{padding:16px}.send-card-body{padding:16px}}
+
+/* --- Native feel: micro-interactions (Option: tap feedback, sheet, pops) --- */
+/* No text selection on taps; inputs stay 16px on phones so iOS never zooms on focus. */
+button{-webkit-user-select:none;user-select:none}
+@media(max-width:600px){input,textarea,select{font-size:16px}}
+
+/* Press feedback: every tappable element shrinks a touch, like a native button. */
+button:active{transform:scale(.96)}
+.icon-button:active,.icon-mini:active,.delete-message:active{transform:scale(.88)}
+.tab-bar-item:active{transform:scale(.94)}
+.game-card:active,.step-card:active{transform:scale(.98)}
+.primary-button:active,.ngl-share-btn:active{transform:scale(.97)}
+.filter-tab{transition:background .2s,color .2s,transform .15s}
+.tab-bar-item{transition:color .2s,transform .15s}
+
+/* Tab bar: the active icon pops when you switch tabs; the badge pops in. */
+.tab-bar-item.active .tab-icon-wrap{animation:tab-pop .3s ease}
+.tab-badge{animation:badge-pop .3s ease}
+@keyframes tab-pop{40%{transform:scale(1.28)}}
+@keyframes badge-pop{0%{transform:scale(.4)}60%{transform:scale(1.25)}}
+
+/* Tab panels fade-slide in on every switch (display:none re-triggers it). */
+.dash-tab-panel{animation:panel-in .28s ease}
+@keyframes panel-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* Bottom sheet + modal: backdrop fades, desktop card springs in (mobile keeps sheet-up). */
+.story-modal{animation:fade-in .2s ease}
+@media(min-width:601px){.story-modal-card{animation:card-in .28s cubic-bezier(.2,.9,.3,1.2)}}
+@keyframes fade-in{from{opacity:0}}
+@keyframes card-in{from{opacity:0;transform:scale(.96) translateY(12px)}}
+
+/* Like button: the heart pops when you tap it. */
+.icon-mini{transition:transform .15s,color .15s}
+.icon-mini.liked{animation:heart-pop .35s ease}
+@keyframes heart-pop{40%{transform:scale(1.45)}}
+
+/* New inbox messages slide in; send success springs in. */
+.inbox-message{animation:msg-in .3s ease}
+.success-panel{animation:panel-in .3s ease}
+@keyframes msg-in{from{opacity:0;transform:translateY(6px)}}
+
+/* Loading shimmer while data loads. */
+.loading-panel{animation:soft-pulse 1.4s ease-in-out infinite}
+@keyframes soft-pulse{50%{opacity:.55}}
+
+/* Page shells fade in on navigation. */
+.dashboard-shell,.send-card{animation:page-in .3s ease}
+@keyframes page-in{from{opacity:0}}
+
+/* Install-app note in Settings. */
+.install-note{display:flex;align-items:center;gap:8px;font-size:12px;line-height:1.6;color:#a59baa;margin:0}
+
+/* Respect reduced-motion: kill the micro-animations, keep the layout. */
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
